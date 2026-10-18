@@ -51,7 +51,7 @@ button,input{font:inherit;color:inherit}
 .ex .fv{background:var(--bg);border-radius:8px;padding:7px 9px;line-height:1.6}
 .stale{margin:0 14px 10px;padding:8px 10px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:12px}
 </style></head><body>
-<header><div><b>🎾 Tennis Duel</b> <small>v1.3</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
+<header><div><b>🎾 Tennis Duel</b> <small>v1.3.1</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
 <div class="mt"><button id="m-live" class="on">Ao vivo</button><button id="m-ct">💰 Contas</button></div>
 <div id="app"></div>
 <script>
@@ -359,7 +359,8 @@ function mover(d){
   else ref=new Date(ref.getFullYear(),ref.getMonth()+d,1);
   render();
 }
-function render(){modo==="live"?renderLive():renderContas()}
+let cfgOn=false;
+function render(){if(cfgOn)return;modo==="live"?renderLive():renderContas()}
 function renderContas(){
   const app=$("#app");
   $("#st").textContent=erro?("falha: "+erro):lidoEm?("lido às "+new Date(lidoEm).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})):"—";
@@ -467,17 +468,17 @@ async function lerFeed(){
   }catch(e){feedErro=String(e.message||e)}
   lendoFeed=false;if(modo==="live"&&!(document.activeElement&&document.activeElement.id==="fodd"))render();
 }
-function setModo(m){modo=m;ls.set("modo",m);$("#m-live").classList.toggle("on",m==="live");$("#m-ct").classList.toggle("on",m==="ct");if(m==="live")lerFeed();render()}
+function setModo(m){cfgOn=false;modo=m;ls.set("modo",m);$("#m-live").classList.toggle("on",m==="live");$("#m-ct").classList.toggle("on",m==="ct");if(m==="live")lerFeed();render()}
 $("#m-live").onclick=()=>setModo("live");$("#m-ct").onclick=()=>setModo("ct");
 setInterval(()=>{if(modo==="live"&&!document.hidden)lerFeed()},5000);
 function abrirCfg(){
-  const app=$("#app");
+  cfgOn=true;const app=$("#app");
   app.innerHTML=`<div class="cfg"><b>Configuração</b><p>Carteira Polymarket (Contas)</p><input id="cw" placeholder="0x…" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(carteira)}"><p>ID do gist (Ao vivo)</p><input id="cg" placeholder="ID do gist" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(gistId)}"><p>Token do GitHub (classic, permissão gist)</p><input id="ct" placeholder="ghp_…" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(gtoken)}"><p id="cinfo" style="font-size:12px">${gtoken?`token salvo: ${gtoken.length} caracteres`:""}</p><button class="p" id="csv">Salvar</button><button class="p" id="ccl" style="background:var(--card);color:var(--tx);border:1px solid var(--bd);margin-top:8px">Cancelar</button></div>`;
   $("#csv").onclick=()=>{
     const w=$("#cw").value.trim(),g=$("#cg").value.trim().split("/").pop().replace(/[^0-9a-zA-Z]/g,""),t=$("#ct").value.replace(/[^0-9a-zA-Z_]/g,"");
     if(w){if(!valida(w)){alert("Carteira inválida");return}carteira=w;ls.set("carteira",w);hist.em=0;ler()}
-    gistId=g;ls.set("gist",g);gtoken=t;ls.set("gtoken",t);feed=null;feedErro="";lerFeed();render()};
-  $("#ccl").onclick=()=>render();
+    gistId=g;ls.set("gist",g);gtoken=t;ls.set("gtoken",t);feed=null;feedErro="";cfgOn=false;lerFeed();render()};
+  $("#ccl").onclick=()=>{cfgOn=false;render()};
 }
 $("#gear").onclick=abrirCfg;
 setModo(modo);ler();setInterval(ler,60000);
