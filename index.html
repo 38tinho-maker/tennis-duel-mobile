@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1d4ed8">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon.png">
@@ -8,6 +8,7 @@
 <style>
 :root{--bg:#f4f5f7;--card:#fff;--tx:#101828;--mut:#667085;--bd:#e4e7ec;--ac:#1d4ed8;--g:#16a34a;--r:#b42318}
 @media(prefers-color-scheme:dark){:root{--bg:#0b0f17;--card:#141a26;--tx:#eef1f6;--mut:#98a2b3;--bd:#232b3a;--ac:#5b8cff;--g:#4ade80;--r:#f87171}}
+html,body{overflow-x:hidden;max-width:100%;overscroll-behavior-x:none}body{touch-action:pan-y}input,select,textarea{font-size:16px!important}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.35 system-ui,-apple-system,sans-serif;padding-bottom:env(safe-area-inset-bottom)}
 header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--bd);padding:calc(8px + env(safe-area-inset-top)) 14px 8px;display:flex;justify-content:space-between;align-items:center}
 header b{font-size:16px}header small{color:var(--mut);font-size:11px}
@@ -51,7 +52,7 @@ button,input{font:inherit;color:inherit}
 .ex .fv{background:var(--bg);border-radius:8px;padding:7px 9px;line-height:1.6}
 .stale{margin:0 14px 10px;padding:8px 10px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:12px}
 </style></head><body>
-<header><div><b>🎾 Tennis Duel</b> <small>v1.3.1</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
+<header><div><b>🎾 Tennis Duel</b> <small>v1.3.3</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
 <div class="mt"><button id="m-live" class="on">Ao vivo</button><button id="m-ct">💰 Contas</button></div>
 <div id="app"></div>
 <script>
@@ -372,14 +373,16 @@ function renderContas(){
   <div class="nav"><button id="ant">◀</button><div class="t">📅 ${titulo(per)}<input type="date" id="dt" value="${apChaveDia(ref)}"></div><button id="prox">▶</button></div>`;
   if(atual.ini.getTime()!==per.ini.getTime())h+=`<button class="hoje" id="hoje">Voltar para hoje</button>`;
   const abertas=bets.filter(b=>b.tenis&&b.resultado==="aberta"&&!b.semPosicao);
-  if(abertas.length){const ap=abertas.reduce((s,b)=>s+b.stake,0),pn=abertas.reduce((s,b)=>s+b.pnl,0);
+  const hojeP=atual.ini.getTime()===per.ini.getTime();
+  if(abertas.length&&hojeP){const ap=abertas.reduce((s,b)=>s+b.stake,0),pn=abertas.reduce((s,b)=>s+b.pnl,0);
     h+=`<button class="top" id="ab"><span>● ${abertas.length} aberta${abertas.length>1?"s":""} · ${din(ap)}</span><span class="${cls(pn)}">${din(pn,1)} ${aberta?"▴":"▾"}</span></button>`;
     if(aberta)h+=abertas.map(b=>`<div class="item"><div class="l1"><span>${esc(b.title)}</span><span class="${cls(b.pnl)}">${din(b.pnl,1)}</span></div><div class="l2">${esc(curto(b.outcome))} · a ${(b.avgPrice).toFixed(2).replace(".",",")} · ${Number(b.cotas).toLocaleString("pt-BR",{maximumFractionDigits:2})} cotas</div></div>`).join("")}
   if(erro)h+=`<div class="aviso">Última leitura falhou: ${esc(erro)}</div>`;
   h+=`<div class="kp"><div>Apostado<b>${din(t.apostado)}</b></div><div>Retorno<b>${din(t.retorno)}</b></div><div>Lucro<b class="${cls(t.lucro)}">${din(t.lucro,1)}</b></div><div>ROI<b class="${cls(t.roi)}">${t.roi>=0?"+":"−"}${Math.abs(t.roi).toFixed(0)}%</b></div><div>Acertos<b>${t.fechadas?`${t.ganhas} de ${t.fechadas}`:"—"}</b></div><div>${tipo==="dia"?"Abertas":"Odd média"}<b>${tipo==="dia"?t.abertas:t.oddMedia?t.oddMedia.toFixed(2).replace(".",","):"—"}</b></div></div>`;
+  const lst=(tipo==="dia"&&hojeP&&abertas.length)?per.bets.filter(b=>b.resultado!=="aberta"):per.bets;
   if(!per.bets.length)h+=`<div class="vazio">Nenhuma aposta de tênis neste período.</div>`;
   else if(tipo==="dia"){
-    h+=per.bets.map(b=>{const pill=b.resultado==="ganhou"?'<span class="pill w">ganhou</span>':b.resultado==="perdeu"?'<span class="pill l">perdeu</span>':b.resultado==="aberta"?'<span class="pill o">aberta</span>':'<span class="pill">encerrada</span>';
+    h+=lst.map(b=>{const pill=b.resultado==="ganhou"?'<span class="pill w">ganhou</span>':b.resultado==="perdeu"?'<span class="pill l">perdeu</span>':b.resultado==="aberta"?'<span class="pill o">aberta</span>':'<span class="pill">encerrada</span>';
       const hr=new Date(b.ts*1000).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
       return `<div class="item"><div class="l1"><span>${esc(b.title)}</span><span class="${cls(b.pnl)}">${din(b.pnl,1)}</span></div><div class="l2">${esc(curto(b.outcome))} · ${din(b.stake)} a ${(b.avgPrice).toFixed(2).replace(".",",")} · ${Number(b.cotas).toLocaleString("pt-BR",{maximumFractionDigits:2})} cotas · ${pill} · ${hr}</div></div>`}).join("");
   }else{
