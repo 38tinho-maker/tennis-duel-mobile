@@ -367,11 +367,11 @@ function horaFim(ms){if(!ms)return"";const d=new Date(ms),h=d.toLocaleTimeString
 function renderLive(){
   const app=$("#app");
   if(!gistId||!gtoken){app.innerHTML=`<div class="cfg"><b>Ao vivo</b><p>No PC, em ⚙️ → Celular, conecte o token do GitHub e copie o <b>ID do gist</b>. Cole aqui o ID e o mesmo token (só permissão de gist; fica só neste aparelho).</p><input id="gi" placeholder="ID do gist" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(gistId)}"><input id="gt" type="password" placeholder="Token do GitHub" value="${esc(gtoken)}"><button class="p" id="gok">Salvar</button></div>`;
-    $("#gok").onclick=()=>{gistId=$("#gi").value.trim();gtoken=$("#gt").value.trim();ls.set("gist",gistId);ls.set("gtoken",gtoken);lerFeed();render()};return}
+    $("#gok").onclick=()=>{gistId=$("#gi").value.trim().split("/").pop().replace(/[^0-9a-zA-Z]/g,"");gtoken=$("#gt").value.replace(/[^0-9a-zA-Z_]/g,"");ls.set("gist",gistId);ls.set("gtoken",gtoken);lerFeed();render()};return}
   const live=feed?feed.live:[],enc=feed?feed.enc:[];
   let h=`<div class="seg"><button data-s="vivo" class="${sub==="vivo"?"on":""}">Ao vivo (${live.length})</button><button data-s="enc" class="${sub==="enc"?"on":""}">Encerrados c/ aposta (${enc.length})</button></div>`;
   if(feed){const idade=Math.round((Date.now()-feed.t)/1000);if(idade>90)h+=`<div class="stale">⚠ PC sem atualizar há ${idade>3600?Math.round(idade/3600)+" h":Math.round(idade/60)+" min"} — dados podem estar velhos.</div>`}
-  if(feedErro)h+=`<div class="aviso">Falha ao ler: ${esc(feedErro)}</div>`;
+  if(feedErro)h+=`<div class="aviso">Falha ao ler: ${esc(feedErro)}<br><button onclick="abrirCfg()" style="margin-top:6px;border:1px solid var(--bd);background:var(--card);border-radius:8px;padding:6px 12px">⚙️ Reconfigurar</button></div>`;
   if(sub==="vivo"){
     if(!live.length)h+=`<div class="vazio">Nenhum jogo ao vivo entre os seus cards.</div>`;
     h+=[...live].sort((x,y)=>(emRisco(y)-emRisco(x))||((y.ap||[]).length-(x.ap||[]).length)).map(g=>{
@@ -394,7 +394,7 @@ async function lerFeed(){
   if(!gistId||!gtoken||lendoFeed)return;lendoFeed=true;
   try{
     const r=await fetch("https://api.github.com/gists/"+gistId,{headers:{Authorization:"Bearer "+gtoken,Accept:"application/vnd.github+json"}});
-    if(!r.ok)throw new Error("GitHub "+r.status);
+    if(!r.ok)throw new Error(r.status===401?"token recusado (401) — toque em ⚙️ e cole o token de novo":r.status===404?"gist não encontrado (404) — confira o ID em ⚙️":"GitHub "+r.status);
     const j=await r.json(),f=j.files&&j.files["feed.json"];
     if(!f)throw new Error("feed.json não encontrado");
     feed=JSON.parse(f.content);feedErro="";
@@ -405,7 +405,16 @@ async function lerFeed(){
 function setModo(m){modo=m;ls.set("modo",m);$("#m-live").classList.toggle("on",m==="live");$("#m-ct").classList.toggle("on",m==="ct");if(m==="live")lerFeed();render()}
 $("#m-live").onclick=()=>setModo("live");$("#m-ct").onclick=()=>setModo("ct");
 setInterval(()=>{if(modo==="live"&&!document.hidden)lerFeed()},5000);
-$("#gear").onclick=()=>{const n=prompt("Carteira Polymarket (0x…) — vazio mantém",carteira);if(n&&valida(n)){carteira=n.trim();ls.set("carteira",carteira);hist.em=0;ler()}else if(n)alert("Endereço inválido");const g=prompt("ID do gist (Ao vivo) — vazio mantém",gistId);if(g){gistId=g.trim();ls.set("gist",gistId)}const t=prompt("Token do GitHub (Ao vivo) — vazio mantém","");if(t){gtoken=t.trim();ls.set("gtoken",gtoken)}lerFeed();render()};
+function abrirCfg(){
+  const app=$("#app");
+  app.innerHTML=`<div class="cfg"><b>Configuração</b><p>Carteira Polymarket (Contas)</p><input id="cw" placeholder="0x…" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(carteira)}"><p>ID do gist (Ao vivo)</p><input id="cg" placeholder="ID do gist" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(gistId)}"><p>Token do GitHub (classic, permissão gist)</p><input id="ct" placeholder="ghp_…" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(gtoken)}"><p id="cinfo" style="font-size:12px">${gtoken?`token salvo: ${gtoken.length} caracteres`:""}</p><button class="p" id="csv">Salvar</button><button class="p" id="ccl" style="background:var(--card);color:var(--tx);border:1px solid var(--bd);margin-top:8px">Cancelar</button></div>`;
+  $("#csv").onclick=()=>{
+    const w=$("#cw").value.trim(),g=$("#cg").value.trim().split("/").pop().replace(/[^0-9a-zA-Z]/g,""),t=$("#ct").value.replace(/[^0-9a-zA-Z_]/g,"");
+    if(w){if(!valida(w)){alert("Carteira inválida");return}carteira=w;ls.set("carteira",w);hist.em=0;ler()}
+    gistId=g;ls.set("gist",g);gtoken=t;ls.set("gtoken",t);feed=null;feedErro="";lerFeed();render()};
+  $("#ccl").onclick=()=>render();
+}
+$("#gear").onclick=abrirCfg;
 setModo(modo);ler();setInterval(ler,60000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)ler()});
 </script></body></html>
