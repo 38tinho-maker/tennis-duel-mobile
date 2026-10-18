@@ -37,9 +37,21 @@ button,input{font:inherit;color:inherit}
 .sr .st{width:22px;text-align:center;color:#94a3b8}.sr .st.w{color:#fff;font-weight:700}.sr .st.cur{color:#fff;font-weight:700}.sr .pt{width:34px;text-align:center;background:#334155;border-radius:4px;font-weight:700}.sr .od{width:40px;text-align:right;color:#fbbf24}
 .ga{padding:8px 12px;border-top:1px solid var(--bd);font-size:13px;display:flex;justify-content:space-between;gap:8px}.ga small{display:block;color:var(--mut);font-size:11px}
 .chip{display:inline-block;font-size:10px;border-radius:8px;padding:1px 7px;margin-left:4px;background:#fee4e2;color:#b42318}
+.fb{margin:0 14px 10px;background:var(--card);border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+.fb>button.h{width:100%;display:flex;justify-content:space-between;padding:9px 12px;border:0;background:none;font-weight:600}
+.fb .gp{padding:2px 12px 10px;border-top:1px solid var(--bd)}.fb .gp small{display:block;color:var(--mut);font-size:11px;margin:8px 0 4px}
+.cp{display:inline-block;margin:0 5px 5px 0;padding:5px 10px;border:1px solid var(--bd);border-radius:14px;background:none;font-size:13px;color:var(--tx)}.cp.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.fb input[type=number]{width:70px;padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg)}
+.fb .lk{border:0;background:none;color:var(--ac);font-weight:600;padding:6px 0 0}
+.tg{display:flex;justify-content:flex-end;margin:0 14px 6px}.tg button{border:0;background:none;color:var(--ac);font-size:12px;font-weight:600}
+.cv{width:100%;border:0;border-top:1px solid var(--bd);background:none;color:var(--ac);font-size:12px;padding:5px}
+.ex{border-top:1px solid var(--bd);padding:8px 12px;font-size:12px}.ex table{width:100%;border-collapse:collapse;margin:3px 0 7px}
+.ex th{color:var(--mut);font-weight:600;padding:2px;text-align:center}.ex td{text-align:center;padding:3px 2px;border-top:1px solid var(--bd)}
+.ex th:first-child,.ex td:first-child{text-align:left}.ex td.hl{background:rgba(91,140,255,.15);font-weight:700}.ex td small{display:block;color:var(--mut);font-size:9px}
+.ex .fv{background:var(--bg);border-radius:8px;padding:7px 9px;line-height:1.6}
 .stale{margin:0 14px 10px;padding:8px 10px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:12px}
 </style></head><body>
-<header><div><b>🎾 Tennis Duel</b><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
+<header><div><b>🎾 Tennis Duel</b> <small>v1.3</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
 <div class="mt"><button id="m-live" class="on">Ao vivo</button><button id="m-ct">💰 Contas</button></div>
 <div id="app"></div>
 <script>
@@ -276,6 +288,48 @@ const cls=(v)=>v>0?"g":v<0?"r":"";
 const curto=(n)=>{const p=String(n||"").trim().split(/\s+/);return p.length<2?p[0]||"":`${p[0][0].toUpperCase()}. ${p[p.length-1]}`};
 const ls={get:(k)=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 let modo=ls.get("modo")||"live",sub="vivo",feed=null,feedErro="",gistId=ls.get("gist")||"",gtoken=ls.get("gtoken")||"",carteira=ls.get("carteira")||"",bets=[],erro="",lidoEm=0,tipo="dia",ref=new Date(),aberta=ls.get("abertas")==="1";
+const FDEF={ap:0,fav:0,odds:0,risco:0,dbl:0,amo:0,odd:0,pisos:[],niv:[]};
+let flt=Object.assign({},FDEF,{pisos:[],niv:[]},(()=>{try{return JSON.parse(ls.get("flt")||"{}")}catch(e){return{}}})()),fOpen=false;
+let abertos=new Set((()=>{try{return JSON.parse(ls.get("abertos")||"[]")}catch(e){return[]}})());
+const svFlt=()=>ls.set("flt",JSON.stringify(flt)),svAb=()=>ls.set("abertos",JSON.stringify([...abertos]));
+const pisoK=(p)=>/grass|grama|relva/i.test(p||"")?"grass":/clay|saibro|barro/i.test(p||"")?"clay":p?"hard":"";
+const nivelK=(t)=>/qual/i.test(t||"")?"Qualies":/challenger/i.test(t||"")?"Challenger":"Principal";
+function nFlt(){return ["ap","fav","odds","risco","dbl","amo"].filter(k=>flt[k]).length+(flt.odd>0?1:0)+(flt.pisos.length?1:0)+(flt.niv.length?1:0)}
+function lidera(g,tipo){ // 0/1 quem lidera no piso do jogo (52 sem.='s', carreira='c'), -1 sem dado
+  const k=pisoK(g.piso),r=g.rt;if(!k||!r)return -1;
+  const x=r.A[tipo][k],y=r.B[tipo][k];if(!x||!y||x[0]===y[0])return -1;return x[0]>y[0]?0:1}
+function passa(g){
+  const f=flt;
+  if(f.ap&&!(g.ap||[]).length)return false;
+  if(f.fav&&!g.fav)return false;
+  if(f.odds&&!g.od)return false;
+  if(f.risco&&!emRisco(g))return false;
+  if(f.odd>0){const o=g.fav&&g.od?parseFloat(g.od[g.fav==="A"?0:1]):0;if(!(o>=f.odd))return false}
+  if(f.pisos.length&&!f.pisos.includes(pisoK(g.piso)))return false;
+  if(f.niv.length&&!f.niv.includes(nivelK(g.tor)))return false;
+  if(f.dbl){const a=lidera(g,"s"),b=lidera(g,"c");if(a<0||a!==b)return false}
+  if(f.amo&&g.rt&&(g.rt.A.lw||g.rt.B.lw))return false;
+  return true}
+function filtrosHtml(){
+  const cp=(k,v,t)=>`<button class="cp ${(flt[k]||[]).includes(v)?"on":""}" data-fa="${k}" data-v="${v}">${t}</button>`;
+  const sw=(k,t)=>`<button class="cp ${flt[k]?"on":""}" data-fk="${k}">${t}</button>`;
+  const n=nFlt();
+  return `<div class="fb"><button class="h" id="fh"><span>🔎 Filtros${n?" ("+n+")":""}</span><span>${fOpen?"▴":"▾"}</span></button>`+(fOpen?`<div class="gp">
+  <small>Jogo</small>${sw("ap","Só com aposta")}${sw("fav","Só com favorito")}${sw("odds","Só com odds")}${sw("risco","⚠ Em risco")}
+  <small>Favorito</small>Odd ≥ <input type="number" id="fodd" step="0.01" min="0" inputmode="decimal" value="${flt.odd||""}" placeholder="—"> ${sw("dbl","Vence carreira + 52 sem.")}${sw("amo","Sem amostra pequena")}
+  <small>Piso</small>${cp("pisos","clay","Saibro")}${cp("pisos","hard","Dura")}${cp("pisos","grass","Grama")}
+  <small>Nível</small>${cp("niv","Principal","Principal")}${cp("niv","Challenger","Challenger")}${cp("niv","Qualies","Qualies")}
+  <br><button class="lk" id="fclr">Limpar filtros</button></div>`:"")+`</div>`}
+function retHtml(g){
+  const r=g.rt;if(!r)return"";const pk=pisoK(g.piso);
+  const tb=(t,tipo)=>`<b>${t}</b><table><tr><th></th><th>Saibro</th><th>Dura</th><th>Grama</th></tr>`+[["A",g.a],["B",g.b]].map(([L,nm])=>`<tr><td>${esc(nc(nm))}${g.fav===L?" ⭐":""}</td>`+["clay","hard","grass"].map(k=>{const v=r[L][tipo][k];return `<td class="${k===pk?"hl":""}">${v?Math.round(v[0])+"%<small>"+v[1]+" j</small>":"—"}</td>`}).join("")+`</tr>`).join("")+`</table>`;
+  let fv="";const f=r.fv;
+  if(f){const nm=(x)=>x==="A"?nc(g.a):x==="B"?nc(g.b):"";const ln=(t,p,w)=>p?`<br>${t} — ${p[0]===p[1]?p[0]+" a "+p[1]+" (empate)":Math.max(...p)+" a "+Math.min(...p)+" "+esc(nm(p[0]>p[1]?"A":"B"))}`:"";
+    fv=`<div class="fv"><b>Favorito: ${esc(nm(f.f||f.pz)||"indefinido")}</b>${f.pt?`<br>${f.pt[0]} a ${f.pt[1]} pontos no total`:""}${f.pz?`<br>Piso — ${esc(nm(f.pz))}`:""}${ln("Overall",f.ov)}${ln("Serve &amp; Return",f.sr)}</div>`}
+  return `<div class="ex">${tb("52 semanas","s")}${tb("Carreira","c")}${fv}</div>`}
+function cardBase(g,aberto){
+  if(!g.rt)return"";
+  return (aberto?retHtml(g):"")+`<button class="cv" data-cv="${esc(g.k)}">${aberto?"▴ recolher":"▾ retrospecto"}</button>`}
 const valida=(c)=>/^0x[0-9a-fA-F]{40}$/.test(String(c||"").trim());
 async function get(c,p){const u=new URL(API+c);Object.entries(p).forEach(([k,v])=>u.searchParams.set(k,String(v)));const r=await fetch(u);if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}
 async function pag(c,p,t,m){let all=[];for(let i=0;i<m;i++){const d=await get(c,{...p,limit:t,offset:i*t});if(!Array.isArray(d))break;all=all.concat(d);if(d.length<t)break}return all}
@@ -372,22 +426,33 @@ function renderLive(){
   let h=`<div class="seg"><button data-s="vivo" class="${sub==="vivo"?"on":""}">Ao vivo (${live.length})</button><button data-s="enc" class="${sub==="enc"?"on":""}">Encerrados c/ aposta (${enc.length})</button></div>`;
   if(feed){const idade=Math.round((Date.now()-feed.t)/1000);if(idade>90)h+=`<div class="stale">⚠ PC sem atualizar há ${idade>3600?Math.round(idade/3600)+" h":Math.round(idade/60)+" min"} — dados podem estar velhos.</div>`}
   if(feedErro)h+=`<div class="aviso">Falha ao ler: ${esc(feedErro)}<br><button onclick="abrirCfg()" style="margin-top:6px;border:1px solid var(--bd);background:var(--card);border-radius:8px;padding:6px 12px">⚙️ Reconfigurar</button></div>`;
+  h+=filtrosHtml();
   if(sub==="vivo"){
     if(!live.length)h+=`<div class="vazio">Nenhum jogo ao vivo entre os seus cards.</div>`;
-    h+=[...live].sort((x,y)=>(emRisco(y)-emRisco(x))||((y.ap||[]).length-(x.ap||[]).length)).map(g=>{
+    const L=live.filter(passa);if(live.length&&!L.length)h+=`<div class="vazio">Nenhum jogo com esses filtros.</div>`;
+    if(L.some(g=>g.rt))h+=`<div class="tg"><button id="tga">${L.filter(g=>g.rt).every(g=>abertos.has(g.k))?"Recolher todos":"Expandir todos"}</button></div>`;
+    h+=[...L].sort((x,y)=>(emRisco(y)-emRisco(x))||((y.ap||[]).length-(x.ap||[]).length)).map(g=>{
       let sa=0,sb=0;g.sets.slice(0,-1).forEach(s=>{if(s[0]>s[1])sa++;else if(s[1]>s[0])sb++});
       return `<div class="gc"><div class="gh"><span>${esc(g.tor||"")}${g.piso?" · "+esc(g.piso):""}${emRisco(g)?'<span class="chip">⚠ em risco</span>':""}</span></div>
-      <div class="sb"><div class="sbh"><span><span class="lv">● AO VIVO</span> · ${esc(g.et||"")}</span><span>sets ${sa}–${sb}</span></div>${g.sets.length?sbRows(g,false):""}</div>${apHtml(g)}</div>`}).join("");
+      <div class="sb"><div class="sbh"><span><span class="lv">● AO VIVO</span> · ${esc(g.et||"")}</span><span>sets ${sa}–${sb}</span></div>${g.sets.length?sbRows(g,false):""}</div>${apHtml(g)}${cardBase(g,abertos.has(g.k))}</div>`}).join("");
   }else{
-    const aps=enc.flatMap(g=>g.ap),lucro=aps.reduce((s,a)=>s+a.p,0),ac=aps.filter(a=>a.p>0).length;
+    const aps=enc.filter(passa).flatMap(g=>g.ap),lucro=aps.reduce((s,a)=>s+a.p,0),ac=aps.filter(a=>a.p>0).length;
     h+=`<div class="kp"><div>Lucro<b class="${cls(lucro)}">${din(lucro,1)}</b></div><div>Acertos<b>${ac}/${aps.length}</b></div><div>Período<b style="font-size:13px">hoje+ontem</b></div></div>`;
-    if(!enc.length)h+=`<div class="vazio">Nenhum jogo encerrado com aposta.</div>`;
-    h+=enc.map(g=>{let sa=0,sb=0;g.sets.forEach(s=>{if(s[0]>s[1])sa++;else if(s[1]>s[0])sb++});const tot=g.ap.reduce((s,a)=>s+a.p,0);
+    const E=enc.filter(passa);if(!E.length)h+=`<div class="vazio">Nenhum jogo encerrado com aposta${enc.length?" nesses filtros":""}.</div>`;
+    h+=E.map(g=>{let sa=0,sb=0;g.sets.forEach(s=>{if(s[0]>s[1])sa++;else if(s[1]>s[0])sb++});const tot=g.ap.reduce((s,a)=>s+a.p,0);
       return `<div class="gc"><div class="gh"><span>🏁 ${g.fim?"terminou "+horaFim(g.fim)+" · ":""}${esc(g.tor||"")}</span><b class="${cls(tot)}">${din(tot,1)}</b></div>
-      <div class="sb"><div class="sbh"><span><b>ENCERRADO</b></span><span>sets ${sa}–${sb}</span></div>${g.sets.length?sbRows(g,true):""}</div>${apHtml(g)}</div>`}).join("");
+      <div class="sb"><div class="sbh"><span><b>ENCERRADO</b></span><span>sets ${sa}–${sb}</span></div>${g.sets.length?sbRows(g,true):""}</div>${apHtml(g)}${cardBase(g,abertos.has(g.k))}</div>`}).join("");
   }
   app.innerHTML=h;
   app.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{sub=b.dataset.s;render()});
+  const q=(i)=>app.querySelector(i);
+  q("#fh").onclick=()=>{fOpen=!fOpen;render()};
+  app.querySelectorAll("[data-fk]").forEach(b=>b.onclick=()=>{flt[b.dataset.fk]=flt[b.dataset.fk]?0:1;svFlt();render()});
+  app.querySelectorAll("[data-fa]").forEach(b=>b.onclick=()=>{const a=flt[b.dataset.fa],v=b.dataset.v,i=a.indexOf(v);i<0?a.push(v):a.splice(i,1);svFlt();render()});
+  const fo=q("#fodd");if(fo)fo.onchange=()=>{flt.odd=parseFloat(fo.value)||0;svFlt();render()};
+  const fc=q("#fclr");if(fc)fc.onclick=()=>{flt=Object.assign({},FDEF,{pisos:[],niv:[]});svFlt();render()};
+  app.querySelectorAll("[data-cv]").forEach(b=>b.onclick=()=>{const k=b.dataset.cv;abertos.has(k)?abertos.delete(k):abertos.add(k);svAb();render()});
+  const tg=q("#tga");if(tg)tg.onclick=()=>{const L=live.filter(passa).filter(g=>g.rt);L.every(g=>abertos.has(g.k))?L.forEach(g=>abertos.delete(g.k)):L.forEach(g=>abertos.add(g.k));svAb();render()};
 }
 let lendoFeed=false;
 async function lerFeed(){
@@ -400,7 +465,7 @@ async function lerFeed(){
     feed=JSON.parse(f.content);feedErro="";
     $("#st").textContent="atualizado "+new Date(feed.t).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
   }catch(e){feedErro=String(e.message||e)}
-  lendoFeed=false;if(modo==="live")render();
+  lendoFeed=false;if(modo==="live"&&!(document.activeElement&&document.activeElement.id==="fodd"))render();
 }
 function setModo(m){modo=m;ls.set("modo",m);$("#m-live").classList.toggle("on",m==="live");$("#m-ct").classList.toggle("on",m==="ct");if(m==="live")lerFeed();render()}
 $("#m-live").onclick=()=>setModo("live");$("#m-ct").onclick=()=>setModo("ct");
