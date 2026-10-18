@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1d4ed8">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.png">
+<title>Tennis Duel</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--tx:#101828;--mut:#667085;--bd:#e4e7ec;--ac:#1d4ed8;--g:#16a34a;--r:#b42318}
+@media(prefers-color-scheme:dark){:root{--bg:#0b0f17;--card:#141a26;--tx:#eef1f6;--mut:#98a2b3;--bd:#232b3a;--ac:#5b8cff;--g:#4ade80;--r:#f87171}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.35 system-ui,-apple-system,sans-serif;padding-bottom:env(safe-area-inset-bottom)}
+header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--bd);padding:calc(8px + env(safe-area-inset-top)) 14px 8px;display:flex;justify-content:space-between;align-items:center}
+header b{font-size:16px}header small{color:var(--mut);font-size:11px}
+button,input{font:inherit;color:inherit}
+.seg{display:flex;gap:6px;padding:10px 14px}.seg button{flex:1;padding:9px 0;border:1px solid var(--bd);background:var(--card);border-radius:10px;font-weight:600;color:var(--mut)}.seg .on{background:var(--ac);border-color:var(--ac);color:#fff}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:0 14px 8px;gap:8px}.nav button{border:1px solid var(--bd);background:var(--card);border-radius:10px;width:44px;height:40px;font-size:16px}
+.nav .t{flex:1;text-align:center;font-weight:700;position:relative}.nav .t input{position:absolute;inset:0;opacity:0;width:100%}
+.hoje{display:block;margin:0 auto 8px;border:0;background:none;color:var(--ac);font-weight:600}
+.kp{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 14px 10px}
+.kp div{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:8px 10px;font-size:11px;color:var(--mut)}.kp b{display:block;font-size:17px;color:var(--tx);margin-top:2px}
+.g{color:var(--g)!important}.r{color:var(--r)!important}
+.bars{margin:0 14px 10px;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px;height:96px;display:flex;align-items:flex-end;gap:3px}
+.bars i{flex:1;background:var(--g);border-radius:2px;min-height:2px}.bars i.n{background:var(--r)}.bars i.v{background:var(--bd)}
+.item{margin:0 14px 8px;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px 12px}
+.item .l1{display:flex;justify-content:space-between;gap:8px;font-weight:600}.item .l2{color:var(--mut);font-size:12px;margin-top:3px}
+.pill{font-size:10px;border-radius:8px;padding:1px 6px;background:var(--bd);color:var(--mut)}.pill.w{background:#dcfce7;color:#166534}.pill.l{background:#fee4e2;color:#b42318}.pill.o{background:#dbeafe;color:#1d4ed8}
+.top{display:flex;justify-content:space-between;align-items:center;margin:0 14px 8px;padding:10px 12px;background:var(--card);border:1px solid var(--bd);border-radius:12px;width:calc(100% - 28px);text-align:left}
+.vazio,.aviso{margin:14px;color:var(--mut);text-align:center}.aviso{background:var(--card);border:1px dashed var(--bd);border-radius:10px;padding:8px;font-size:12px}
+.cfg{padding:18px 14px}.cfg input{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);margin:8px 0}.cfg button.p{width:100%;padding:12px;border:0;border-radius:10px;background:var(--ac);color:#fff;font-weight:700}
+.cfg p{color:var(--mut);font-size:13px}
+
+.mt{display:flex;border-bottom:1px solid var(--bd);background:var(--card)}.mt button{flex:1;padding:11px 0;border:0;background:none;font-weight:700;color:var(--mut);border-bottom:3px solid transparent}.mt .on{color:var(--ac);border-color:var(--ac)}
+.gc{margin:0 14px 10px;background:var(--card);border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+.gh{display:flex;justify-content:space-between;padding:8px 12px;font-size:12px;color:var(--mut)}
+.sb{background:#0f172a;color:#fff;padding:8px 12px}.sbh{display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-bottom:4px}.sbh .lv{color:#f87171;font-weight:700}
+.sr{display:flex;align-items:center;gap:6px;padding:2px 0}.sr .sv{width:8px;height:8px;border-radius:50%;flex:none}.sr .sv.on{background:#facc15}.sr .nm{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sr .st{width:22px;text-align:center;color:#94a3b8}.sr .st.w{color:#fff;font-weight:700}.sr .st.cur{color:#fff;font-weight:700}.sr .pt{width:34px;text-align:center;background:#334155;border-radius:4px;font-weight:700}.sr .od{width:40px;text-align:right;color:#fbbf24}
+.ga{padding:8px 12px;border-top:1px solid var(--bd);font-size:13px;display:flex;justify-content:space-between;gap:8px}.ga small{display:block;color:var(--mut);font-size:11px}
+.chip{display:inline-block;font-size:10px;border-radius:8px;padding:1px 7px;margin-left:4px;background:#fee4e2;color:#b42318}
+.stale{margin:0 14px 10px;padding:8px 10px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:12px}
+</style></head><body>
+<header><div><b>🎾 Tennis Duel</b><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
+<div class="mt"><button id="m-live" class="on">Ao vivo</button><button id="m-ct">💰 Contas</button></div>
+<div id="app"></div>
+<script>
+// Apostas da Polymarket: montagem a partir da API pública de dados (posições + atividade)
+// e agregação por dia/semana/mês. Funções puras (testáveis em Node).
+
+function apSlugify(s) {
+  return String(s || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function apPalavras(s) {
+  return apSlugify(s)
+    .split("-")
+    .filter((w) => w && !/^\d+$/.test(w));
+}
+
+function apCompat(a, b) {
+  if (a === b) return true;
+  if (a.length === 1 && b[0] === a) return true;
+  if (b.length === 1 && a[0] === b) return true;
+  return false;
+}
+
+function apNomesBatem(wa, wb) {
+  if (!wa.length || !wb.length) return false;
+  const [menor, maior] = wa.length <= wb.length ? [wa, wb] : [wb, wa];
+  return menor.every((x) => maior.some((y) => apCompat(x, y)));
+}
+
+function apEhTenis(slug, eventSlug) {
+  return /^(atp|wta|itf|challenger|tennis)/i.test(slug || "") || /^(atp|wta|itf|challenger|tennis)/i.test(eventSlug || "") || /tennis/i.test(slug || "");
+}
+
+function apNum(x) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : 0;
+}
+
+// Uma "aposta" = um mercado (conditionId) em que você comprou.
+function apostasConstruir(activity, positions, closedCids, agoraSeg) {
+  const agora = agoraSeg || Date.now() / 1000;
+  const fechados = new Set(closedCids || []);
+  const mapa = new Map();
+  const pega = (cid) => {
+    if (!mapa.has(cid)) mapa.set(cid, { cid, stake: 0, shares: 0, ret: 0, ts: null, compras: {}, title: "", slug: "", eventSlug: "" });
+    return mapa.get(cid);
+  };
+  (activity || []).forEach((a) => {
+    const cid = a.cid || a.conditionId;
+    if (!cid) return;
+    const tipo = String(a.t || a.type || "").toUpperCase();
+    const lado = String(a.side || "").toUpperCase();
+    const usd = apNum(a.usd !== undefined ? a.usd : a.usdcSize) || apNum(a.size) * apNum(a.price);
+    const ts = apNum(a.ts !== undefined ? a.ts : a.timestamp);
+    const b = pega(cid);
+    if (!b.title) b.title = a.title || "";
+    if (!b.slug) b.slug = a.slug || "";
+    if (!b.eventSlug) b.eventSlug = a.eventSlug || a.es || "";
+    if (tipo === "TRADE" && lado === "BUY") {
+      b.stake += usd;
+      b.shares += apNum(a.size);
+      if (ts && (b.ts === null || ts < b.ts)) b.ts = ts;
+      const o = a.out || a.outcome || "";
+      b.compras[o] = (b.compras[o] || 0) + usd;
+    } else if ((tipo === "TRADE" && lado === "SELL") || tipo === "REDEEM") {
+      b.ret += usd;
+    }
+  });
+  const posPorCid = new Map();
+  (positions || []).forEach((p) => {
+    const cid = p.conditionId;
+    if (!cid) return;
+    if (!posPorCid.has(cid)) posPorCid.set(cid, []);
+    posPorCid.get(cid).push(p);
+  });
+  posPorCid.forEach((lista, cid) => {
+    const b = pega(cid);
+    if (!b.title) b.title = lista[0].title || "";
+    if (!b.slug) b.slug = lista[0].slug || "";
+    if (!b.eventSlug) b.eventSlug = lista[0].eventSlug || "";
+    if (b.stake === 0) {
+      // sem histórico: usa o que a posição informa
+      b.stake = lista.reduce((s, p) => s + apNum(p.initialValue), 0);
+      b.shares = lista.reduce((s, p) => s + apNum(p.totalBought || p.size), 0);
+      lista.forEach((p) => (b.compras[p.outcome || ""] = (b.compras[p.outcome || ""] || 0) + apNum(p.initialValue)));
+    }
+  });
+  const bets = [];
+  mapa.forEach((b) => {
+    if (b.stake <= 0) return;
+    const lista = (posPorCid.get(b.cid) || []).filter((p) => apNum(p.size) > 0.01);
+    const valorAtual = lista.reduce((s, p) => s + apNum(p.currentValue), 0);
+    // Só vira "encerrada" com prova: posição resolvida, já vendida/resgatada, ou listada nas encerradas.
+    // Posição que simplesmente não apareceu NÃO é perda: fica "aberta" sem valor conhecido.
+    let status;
+    let semPosicao = false;
+    if (lista.length > 0) status = lista.every((p) => p.redeemable) ? "encerrada" : "aberta";
+    else if (fechados.has(b.cid) || b.ret > 0) status = "encerrada";
+    else if (b.ts && agora - b.ts > 24 * 3600) status = "encerrada"; // sem posição e já passou o dia: some da lista ao perder
+    else {
+      status = "aberta";
+      semPosicao = true;
+    }
+    const retEfetivo = semPosicao ? b.stake : b.ret + valorAtual;
+    const pnl = retEfetivo - b.stake;
+    let resultado = status;
+    if (status === "encerrada") resultado = pnl > 0.005 ? "ganhou" : pnl < -0.005 ? "perdeu" : "neutra";
+    const outcome = Object.keys(b.compras).sort((x, y) => b.compras[y] - b.compras[x])[0] || (lista[0] && lista[0].outcome) || "";
+    const avg = b.shares > 0 ? b.stake / b.shares : 0;
+    bets.push({
+      cid: b.cid,
+      title: b.title,
+      slug: b.slug,
+      outcome,
+      stake: b.stake,
+      avgPrice: avg,
+      cotas: b.shares,
+      pnl,
+      pct: b.stake > 0 ? (pnl / b.stake) * 100 : 0,
+      retorno: retEfetivo,
+      semPosicao,
+      resultado, // aberta | ganhou | perdeu | neutra
+      ts: b.ts, // segundos (1ª compra) ou null
+      tenis: apEhTenis(b.slug, b.eventSlug),
+    });
+  });
+  bets.sort((x, y) => (x.ts || 0) - (y.ts || 0));
+  return bets;
+}
+
+// "Roncadelli vs. Angelo" / "Torneio: A vs B" -> [palavrasA, palavrasB]
+function apTituloJogadores(title) {
+  const t = String(title || "");
+  const partes = t.split(/\s+vs\.?\s+/i);
+  if (partes.length !== 2) return null;
+  const esq = partes[0].split(":").pop();
+  const dir = partes[1].split(/[:(\[]/)[0];
+  const wa = apPalavras(esq);
+  const wb = apPalavras(dir);
+  return wa.length && wb.length ? [wa, wb] : null;
+}
+
+// Apostas que pertencem a um card (jogadores A e B). Devolve [{bet, lado:"A"|"B"|null}]
+function apostasParaCard(bets, nomeA, nomeB, agoraSeg, janelaSeg) {
+  const wA = apPalavras(nomeA);
+  const wB = apPalavras(nomeB);
+  const agora = agoraSeg || Date.now() / 1000;
+  const out = [];
+  (bets || []).forEach((bet) => {
+    if (!bet.tenis) return;
+    if (bet.resultado !== "aberta" && (!bet.ts || agora - bet.ts > (janelaSeg || 36 * 3600))) return;
+    const jog = apTituloJogadores(bet.title);
+    if (!jog) return;
+    const direto = apNomesBatem(wA, jog[0]) && apNomesBatem(wB, jog[1]);
+    const invertido = apNomesBatem(wA, jog[1]) && apNomesBatem(wB, jog[0]);
+    if (!direto && !invertido) return;
+    const wo = apPalavras(bet.outcome);
+    let lado = null;
+    if (apNomesBatem(wo, wA) && !apNomesBatem(wo, wB)) lado = "A";
+    else if (apNomesBatem(wo, wB) && !apNomesBatem(wo, wA)) lado = "B";
+    out.push({ bet, lado });
+  });
+  return out;
+}
+
+function apChaveDia(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function apInicioSemana(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dia = (x.getDay() + 6) % 7; // segunda = 0
+  x.setDate(x.getDate() - dia);
+  return x;
+}
+
+// tipo: "dia" | "semana" | "mes"; ref: Date. Só apostas com data conhecida.
+function apostasPeriodo(bets, tipo, ref, soTenis) {
+  let ini;
+  let fim;
+  if (tipo === "dia") {
+    ini = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
+    fim = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + 1);
+  } else if (tipo === "semana") {
+    ini = apInicioSemana(ref);
+    fim = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + 7);
+  } else {
+    ini = new Date(ref.getFullYear(), ref.getMonth(), 1);
+    fim = new Date(ref.getFullYear(), ref.getMonth() + 1, 1);
+  }
+  const lista = (bets || []).filter((b) => b.ts && (!soTenis || b.tenis) && b.ts * 1000 >= ini.getTime() && b.ts * 1000 < fim.getTime());
+  return { ini, fim, bets: lista, totais: apTotais(lista) };
+}
+
+function apTotais(lista) {
+  const apostado = lista.reduce((s, b) => s + b.stake, 0);
+  const retorno = lista.reduce((s, b) => s + b.retorno, 0);
+  const lucro = retorno - apostado;
+  const fechadas = lista.filter((b) => b.resultado !== "aberta");
+  const ganhas = fechadas.filter((b) => b.resultado === "ganhou").length;
+  const abertas = lista.length - fechadas.length;
+  const odds = lista.filter((b) => b.avgPrice > 0).map((b) => 1 / b.avgPrice);
+  return {
+    n: lista.length,
+    apostado,
+    retorno,
+    lucro,
+    roi: apostado > 0 ? (lucro / apostado) * 100 : 0,
+    ganhas,
+    fechadas: fechadas.length,
+    abertas,
+    oddMedia: odds.length ? odds.reduce((s, x) => s + x, 0) / odds.length : 0,
+  };
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { apostasConstruir, apostasParaCard, apostasPeriodo, apTotais, apTituloJogadores, apInicioSemana, apChaveDia, apPalavras };
+}
+
+</script>
+<script>
+const API="https://data-api.polymarket.com";
+const DIAS=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"],MESES=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+const $=(s)=>document.querySelector(s);
+const esc=(t)=>String(t).replace(/[&<>"]/g,(c)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const din=(v,s)=>{const n=Number(v)||0;return `${n<0?"−":s?"+":""}$${Math.abs(n).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`};
+const cls=(v)=>v>0?"g":v<0?"r":"";
+const curto=(n)=>{const p=String(n||"").trim().split(/\s+/);return p.length<2?p[0]||"":`${p[0][0].toUpperCase()}. ${p[p.length-1]}`};
+const ls={get:(k)=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+let modo=ls.get("modo")||"live",sub="vivo",feed=null,feedErro="",gistId=ls.get("gist")||"",gtoken=ls.get("gtoken")||"",carteira=ls.get("carteira")||"",bets=[],erro="",lidoEm=0,tipo="dia",ref=new Date(),aberta=ls.get("abertas")==="1";
+const valida=(c)=>/^0x[0-9a-fA-F]{40}$/.test(String(c||"").trim());
+async function get(c,p){const u=new URL(API+c);Object.entries(p).forEach(([k,v])=>u.searchParams.set(k,String(v)));const r=await fetch(u);if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}
+async function pag(c,p,t,m){let all=[];for(let i=0;i<m;i++){const d=await get(c,{...p,limit:t,offset:i*t});if(!Array.isArray(d))break;all=all.concat(d);if(d.length<t)break}return all}
+let hist={em:0,activity:[],closed:[]};
+async function ler(){
+  if(!valida(carteira))return;const w=carteira.trim().toLowerCase();
+  try{
+    const positions=await pag("/positions",{user:w,sizeThreshold:0},500,8);
+    if(Date.now()-hist.em>5*60*1000){
+      try{hist.activity=(await pag("/activity",{user:w,sortBy:"TIMESTAMP",sortDirection:"DESC"},500,8)).filter(a=>a&&(a.type==="TRADE"||a.type==="REDEEM")).map(a=>({t:a.type,side:a.side,usd:a.usdcSize,size:a.size,price:a.price,ts:a.timestamp,cid:a.conditionId,title:a.title,out:a.outcome,slug:a.slug,es:a.eventSlug}))}catch(e){}
+      try{hist.closed=(await pag("/closed-positions",{user:w},50,40)).map(x=>x.conditionId).filter(Boolean)}catch(e){}
+      hist.em=Date.now();
+    }
+    bets=apostasConstruir(hist.activity,positions,hist.closed);erro="";lidoEm=Date.now();
+  }catch(e){erro=String(e.message||e)}
+  render();
+}
+function titulo(per){
+  if(tipo==="dia")return `${DIAS[ref.getDay()]}, ${String(ref.getDate()).padStart(2,"0")}/${String(ref.getMonth()+1).padStart(2,"0")}`;
+  const f=(d)=>`${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;
+  if(tipo==="semana")return `${f(per.ini)} – ${f(new Date(per.fim-86400000))}`;
+  return `${MESES[ref.getMonth()]} ${ref.getFullYear()}`;
+}
+function mover(d){
+  if(tipo==="dia")ref=new Date(ref.getFullYear(),ref.getMonth(),ref.getDate()+d);
+  else if(tipo==="semana")ref=new Date(ref.getFullYear(),ref.getMonth(),ref.getDate()+7*d);
+  else ref=new Date(ref.getFullYear(),ref.getMonth()+d,1);
+  render();
+}
+function render(){modo==="live"?renderLive():renderContas()}
+function renderContas(){
+  const app=$("#app");
+  $("#st").textContent=erro?("falha: "+erro):lidoEm?("lido às "+new Date(lidoEm).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})):"—";
+  if(!valida(carteira)){app.innerHTML=`<div class="cfg"><b>Sua carteira Polymarket</b><p>Cole o endereço público (0x…, 42 caracteres). Só leitura, fica salvo só neste aparelho.</p><input id="w" placeholder="0x…" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(carteira)}"><button class="p" id="ok">Salvar</button></div>`;
+    $("#ok").onclick=()=>{carteira=$("#w").value.trim();if(valida(carteira)){ls.set("carteira",carteira);hist.em=0;ler();render()}else alert("Endereço inválido")};return}
+  const per=apostasPeriodo(bets,tipo,ref,true),t=per.totais;
+  const atual=apostasPeriodo([],tipo,new Date(),true);
+  let h=`<div class="seg">${["dia","semana","mes"].map(x=>`<button data-t="${x}" class="${x===tipo?"on":""}">${x==="dia"?"Dia":x==="semana"?"Semana":"Mês"}</button>`).join("")}</div>
+  <div class="nav"><button id="ant">◀</button><div class="t">📅 ${titulo(per)}<input type="date" id="dt" value="${apChaveDia(ref)}"></div><button id="prox">▶</button></div>`;
+  if(atual.ini.getTime()!==per.ini.getTime())h+=`<button class="hoje" id="hoje">Voltar para hoje</button>`;
+  const abertas=bets.filter(b=>b.tenis&&b.resultado==="aberta"&&!b.semPosicao);
+  if(abertas.length){const ap=abertas.reduce((s,b)=>s+b.stake,0),pn=abertas.reduce((s,b)=>s+b.pnl,0);
+    h+=`<button class="top" id="ab"><span>● ${abertas.length} aberta${abertas.length>1?"s":""} · ${din(ap)}</span><span class="${cls(pn)}">${din(pn,1)} ${aberta?"▴":"▾"}</span></button>`;
+    if(aberta)h+=abertas.map(b=>`<div class="item"><div class="l1"><span>${esc(b.title)}</span><span class="${cls(b.pnl)}">${din(b.pnl,1)}</span></div><div class="l2">${esc(curto(b.outcome))} · a ${(b.avgPrice).toFixed(2).replace(".",",")} · ${Number(b.cotas).toLocaleString("pt-BR",{maximumFractionDigits:2})} cotas</div></div>`).join("")}
+  if(erro)h+=`<div class="aviso">Última leitura falhou: ${esc(erro)}</div>`;
+  h+=`<div class="kp"><div>Apostado<b>${din(t.apostado)}</b></div><div>Retorno<b>${din(t.retorno)}</b></div><div>Lucro<b class="${cls(t.lucro)}">${din(t.lucro,1)}</b></div><div>ROI<b class="${cls(t.roi)}">${t.roi>=0?"+":"−"}${Math.abs(t.roi).toFixed(0)}%</b></div><div>Acertos<b>${t.fechadas?`${t.ganhas} de ${t.fechadas}`:"—"}</b></div><div>${tipo==="dia"?"Abertas":"Odd média"}<b>${tipo==="dia"?t.abertas:t.oddMedia?t.oddMedia.toFixed(2).replace(".",","):"—"}</b></div></div>`;
+  if(!per.bets.length)h+=`<div class="vazio">Nenhuma aposta de tênis neste período.</div>`;
+  else if(tipo==="dia"){
+    h+=per.bets.map(b=>{const pill=b.resultado==="ganhou"?'<span class="pill w">ganhou</span>':b.resultado==="perdeu"?'<span class="pill l">perdeu</span>':b.resultado==="aberta"?'<span class="pill o">aberta</span>':'<span class="pill">encerrada</span>';
+      const hr=new Date(b.ts*1000).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+      return `<div class="item"><div class="l1"><span>${esc(b.title)}</span><span class="${cls(b.pnl)}">${din(b.pnl,1)}</span></div><div class="l2">${esc(curto(b.outcome))} · ${din(b.stake)} a ${(b.avgPrice).toFixed(2).replace(".",",")} · ${Number(b.cotas).toLocaleString("pt-BR",{maximumFractionDigits:2})} cotas · ${pill} · ${hr}</div></div>`}).join("");
+  }else{
+    const g=new Map();per.bets.forEach(b=>{const k=apChaveDia(new Date(b.ts*1000));if(!g.has(k))g.set(k,[]);g.get(k).push(b)});
+    const n=Math.round((per.fim-per.ini)/864e5),dias=[];
+    for(let i=0;i<n;i++){const d=new Date(per.ini.getFullYear(),per.ini.getMonth(),per.ini.getDate()+i),l=g.get(apChaveDia(d))||[];dias.push({d,l:l.reduce((s,b)=>s+b.pnl,0),n:l.length})}
+    const mx=Math.max(1,...dias.map(x=>Math.abs(x.l)));
+    h+=`<div class="bars">${dias.map(x=>`<i class="${x.n===0?"v":x.l<0?"n":""}" style="height:${x.n===0?2:Math.max(4,Math.round(Math.abs(x.l)/mx*100))}${x.n===0?"px":"%"}"></i>`).join("")}</div>`;
+    h+=dias.filter(x=>x.n).reverse().map(x=>`<div class="item" data-d="${apChaveDia(x.d)}" style="cursor:pointer"><div class="l1"><span>${DIAS[x.d.getDay()]} ${String(x.d.getDate()).padStart(2,"0")}/${String(x.d.getMonth()+1).padStart(2,"0")} · ${x.n} jogo${x.n>1?"s":""}</span><span class="${cls(x.l)}">${din(x.l,1)}</span></div></div>`).join("");
+  }
+  app.innerHTML=h;
+  app.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{tipo=b.dataset.t;render()});
+  $("#ant").onclick=()=>mover(-1);$("#prox").onclick=()=>mover(1);
+  const hj=$("#hoje");if(hj)hj.onclick=()=>{ref=new Date();render()};
+  const ab=$("#ab");if(ab)ab.onclick=()=>{aberta=!aberta;ls.set("abertas",aberta?"1":"0");render()};
+  $("#dt").onchange=(e)=>{const[y,m,d]=e.target.value.split("-").map(Number);if(y){ref=new Date(y,m-1,d);render()}};
+  app.querySelectorAll("[data-d]").forEach(el=>el.onclick=()=>{const[y,m,d]=el.dataset.d.split("-").map(Number);ref=new Date(y,m-1,d);tipo="dia";render();scrollTo(0,0)});
+}
+
+const nc=(n)=>curto(n);
+function sbRows(g,fim){
+  const ns=g.sets.length,cur=fim?-1:ns-1;
+  const row=(i)=>{const nome=i?g.b:g.a,isFav=g.fav===(i?"B":"A");
+    const cells=g.sets.map((s,k)=>{const m=s[i],o=s[1-i];return `<span class="st ${k===cur?"cur":m>o?"w":""}">${m}</span>`}).join("");
+    const pt=!fim&&g.pt?g.pt[i]:"",sv=g.sv===(i?"b":"a");
+    return `<div class="sr"><span class="sv ${sv&&!fim?"on":""}"></span><span class="nm">${esc(nc(nome))}${isFav?" ⭐":""}</span>${cells}${fim?"":`<span class="pt">${pt==null?"":esc(pt)}</span><span class="od">${g.od?esc(g.od[i]):""}</span>`}</div>`};
+  return row(0)+row(1);
+}
+function apHtml(g){
+  return (g.ap||[]).map(a=>{const nome=a.l==="A"?g.a:a.l==="B"?g.b:a.o;const neg=a.p<0;
+    const risco=!neg?"":"";
+    return `<div class="ga"><span>💰 ${esc(nc(nome))}<small>${Number(a.c).toLocaleString("pt-BR",{maximumFractionDigits:2})} cotas · apostado ${din(a.s)}${a.st==="ganhou"?" · ganhou":a.st==="perdeu"?" · perdeu":""}</small></span><b class="${cls(a.p)}">${din(a.p,1)} (${a.pc>=0?"+":"−"}${Math.abs(a.pc).toFixed(0)}%)</b></div>`}).join("");
+}
+function emRisco(g){ // aposta no jogador que está atrás em sets
+  if(!g.sets.length||!(g.ap||[]).length)return false;
+  let sa=0,sb=0;g.sets.slice(0,-1).forEach(s=>{if(s[0]>s[1])sa++;else if(s[1]>s[0])sb++});
+  return g.ap.some(a=>a.st==="aberta"&&((a.l==="A"&&sb>sa)||(a.l==="B"&&sa>sb)));
+}
+function horaFim(ms){if(!ms)return"";const d=new Date(ms),h=d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});return d.toDateString()===new Date().toDateString()?h:"ontem "+h}
+function renderLive(){
+  const app=$("#app");
+  if(!gistId||!gtoken){app.innerHTML=`<div class="cfg"><b>Ao vivo</b><p>No PC, em ⚙️ → Celular, conecte o token do GitHub e copie o <b>ID do gist</b>. Cole aqui o ID e o mesmo token (só permissão de gist; fica só neste aparelho).</p><input id="gi" placeholder="ID do gist" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(gistId)}"><input id="gt" type="password" placeholder="Token do GitHub" value="${esc(gtoken)}"><button class="p" id="gok">Salvar</button></div>`;
+    $("#gok").onclick=()=>{gistId=$("#gi").value.trim();gtoken=$("#gt").value.trim();ls.set("gist",gistId);ls.set("gtoken",gtoken);lerFeed();render()};return}
+  const live=feed?feed.live:[],enc=feed?feed.enc:[];
+  let h=`<div class="seg"><button data-s="vivo" class="${sub==="vivo"?"on":""}">Ao vivo (${live.length})</button><button data-s="enc" class="${sub==="enc"?"on":""}">Encerrados c/ aposta (${enc.length})</button></div>`;
+  if(feed){const idade=Math.round((Date.now()-feed.t)/1000);if(idade>90)h+=`<div class="stale">⚠ PC sem atualizar há ${idade>3600?Math.round(idade/3600)+" h":Math.round(idade/60)+" min"} — dados podem estar velhos.</div>`}
+  if(feedErro)h+=`<div class="aviso">Falha ao ler: ${esc(feedErro)}</div>`;
+  if(sub==="vivo"){
+    if(!live.length)h+=`<div class="vazio">Nenhum jogo ao vivo entre os seus cards.</div>`;
+    h+=[...live].sort((x,y)=>(emRisco(y)-emRisco(x))||((y.ap||[]).length-(x.ap||[]).length)).map(g=>{
+      let sa=0,sb=0;g.sets.slice(0,-1).forEach(s=>{if(s[0]>s[1])sa++;else if(s[1]>s[0])sb++});
+      return `<div class="gc"><div class="gh"><span>${esc(g.tor||"")}${g.piso?" · "+esc(g.piso):""}${emRisco(g)?'<span class="chip">⚠ em risco</span>':""}</span></div>
+      <div class="sb"><div class="sbh"><span><span class="lv">● AO VIVO</span> · ${esc(g.et||"")}</span><span>sets ${sa}–${sb}</span></div>${g.sets.length?sbRows(g,false):""}</div>${apHtml(g)}</div>`}).join("");
+  }else{
+    const aps=enc.flatMap(g=>g.ap),lucro=aps.reduce((s,a)=>s+a.p,0),ac=aps.filter(a=>a.p>0).length;
+    h+=`<div class="kp"><div>Lucro<b class="${cls(lucro)}">${din(lucro,1)}</b></div><div>Acertos<b>${ac}/${aps.length}</b></div><div>Período<b style="font-size:13px">hoje+ontem</b></div></div>`;
+    if(!enc.length)h+=`<div class="vazio">Nenhum jogo encerrado com aposta.</div>`;
+    h+=enc.map(g=>{let sa=0,sb=0;g.sets.forEach(s=>{if(s[0]>s[1])sa++;else if(s[1]>s[0])sb++});const tot=g.ap.reduce((s,a)=>s+a.p,0);
+      return `<div class="gc"><div class="gh"><span>🏁 ${g.fim?"terminou "+horaFim(g.fim)+" · ":""}${esc(g.tor||"")}</span><b class="${cls(tot)}">${din(tot,1)}</b></div>
+      <div class="sb"><div class="sbh"><span><b>ENCERRADO</b></span><span>sets ${sa}–${sb}</span></div>${g.sets.length?sbRows(g,true):""}</div>${apHtml(g)}</div>`}).join("");
+  }
+  app.innerHTML=h;
+  app.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{sub=b.dataset.s;render()});
+}
+let lendoFeed=false;
+async function lerFeed(){
+  if(!gistId||!gtoken||lendoFeed)return;lendoFeed=true;
+  try{
+    const r=await fetch("https://api.github.com/gists/"+gistId,{headers:{Authorization:"Bearer "+gtoken,Accept:"application/vnd.github+json"}});
+    if(!r.ok)throw new Error("GitHub "+r.status);
+    const j=await r.json(),f=j.files&&j.files["feed.json"];
+    if(!f)throw new Error("feed.json não encontrado");
+    feed=JSON.parse(f.content);feedErro="";
+    $("#st").textContent="atualizado "+new Date(feed.t).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  }catch(e){feedErro=String(e.message||e)}
+  lendoFeed=false;if(modo==="live")render();
+}
+function setModo(m){modo=m;ls.set("modo",m);$("#m-live").classList.toggle("on",m==="live");$("#m-ct").classList.toggle("on",m==="ct");if(m==="live")lerFeed();render()}
+$("#m-live").onclick=()=>setModo("live");$("#m-ct").onclick=()=>setModo("ct");
+setInterval(()=>{if(modo==="live"&&!document.hidden)lerFeed()},5000);
+$("#gear").onclick=()=>{const n=prompt("Carteira Polymarket (0x…) — vazio mantém",carteira);if(n&&valida(n)){carteira=n.trim();ls.set("carteira",carteira);hist.em=0;ler()}else if(n)alert("Endereço inválido");const g=prompt("ID do gist (Ao vivo) — vazio mantém",gistId);if(g){gistId=g.trim();ls.set("gist",gistId)}const t=prompt("Token do GitHub (Ao vivo) — vazio mantém","");if(t){gtoken=t.trim();ls.set("gtoken",gtoken)}lerFeed();render()};
+setModo(modo);ler();setInterval(ler,60000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)ler()});
+</script></body></html>
