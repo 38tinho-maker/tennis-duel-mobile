@@ -52,7 +52,7 @@ button,input{font:inherit;color:inherit}
 .ex .fv{background:var(--bg);border-radius:8px;padding:7px 9px;line-height:1.6}
 .stale{margin:0 14px 10px;padding:8px 10px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:12px}
 </style></head><body>
-<header><div><b>🎾 Tennis Duel</b> <small>v1.3.3</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
+<header><div><b>🎾 Tennis Duel</b> <small>v1.5</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
 <div class="mt"><button id="m-live" class="on">Ao vivo</button><button id="m-ct">💰 Contas</button></div>
 <div id="app"></div>
 <script>
@@ -289,35 +289,149 @@ const cls=(v)=>v>0?"g":v<0?"r":"";
 const curto=(n)=>{const p=String(n||"").trim().split(/\s+/);return p.length<2?p[0]||"":`${p[0][0].toUpperCase()}. ${p[p.length-1]}`};
 const ls={get:(k)=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 let modo=ls.get("modo")||"live",sub="vivo",feed=null,feedErro="",gistId=ls.get("gist")||"",gtoken=ls.get("gtoken")||"",carteira=ls.get("carteira")||"",bets=[],erro="",lidoEm=0,tipo="dia",ref=new Date(),aberta=ls.get("abertas")==="1";
-const FDEF={ap:0,fav:0,odds:0,risco:0,dbl:0,amo:0,odd:0,pisos:[],niv:[]};
-let flt=Object.assign({},FDEF,{pisos:[],niv:[]},(()=>{try{return JSON.parse(ls.get("flt")||"{}")}catch(e){return{}}})()),fOpen=false;
+const FDEF={ap:0,fav:0,odds:0,risco:0,amo:0,pisos:[],niv:[]};
+// Filtros "Jogador-alvo" + Odd + Valor (puro, sem DOM). Usado na extensão e inlined no mobile.
+// d = { s:{A:[pct,jogos]|null,B:...}  (52 sem. no piso do jogo),
+//       c:{A,B} (carreira), odd:{A:num|null,B:num|null}, fav:"A"|"B"|null }
+function filtroAlvoPadrao() {
+  return {
+    alvo: { on: false, base: "ou", so: "qualquer", pctMin: null, vantMin: null, jogosMin: null },
+    odd: { on: false, op: "acima", v1: null, v2: null },
+    valor: { on: false, base: "min", min: null },
+  };
+}
+function filtroAlvoAtivos(f) {
+  return (f.alvo.on ? 1 : 0) + (f.odd.on ? 1 : 0) + (f.valor.on ? 1 : 0);
+}
+function filtroAlvoPassa(f, d) {
+  if (!f.alvo.on && !f.odd.on && !f.valor.on) return true;
+  const outro = (x) => (x === "A" ? "B" : "A");
+  const lidera = (per, x) => {
+    const a = per && per[x], b = per && per[outro(x)];
+    if (!a || !b || a[0] == null || b[0] == null) return false;
+    if (!(a[0] > b[0])) return false;
+    const al = f.alvo;
+    if (al.pctMin != null && a[0] < al.pctMin) return false;
+    if (al.vantMin != null && a[0] - b[0] < al.vantMin) return false;
+    if (al.jogosMin != null && !(a[1] >= al.jogosMin)) return false;
+    return true;
+  };
+  for (const x of ["A", "B"]) {
+    if (f.alvo.on) {
+      const q52 = lidera(d.s, x), qc = lidera(d.c, x);
+      const ok = f.alvo.base === "52" ? q52 : f.alvo.base === "car" ? qc : f.alvo.base === "e" ? q52 && qc : q52 || qc;
+      if (!ok) continue;
+      if (f.alvo.so === "fav" && d.fav !== x) continue;
+    }
+    const o = d.odd && d.odd[x] != null ? Number(d.odd[x]) : null;
+    if (f.odd.on) {
+      if (!(o > 0)) continue;
+      const { op, v1, v2 } = f.odd;
+      if (op === "acima" && !(v1 != null && o >= v1)) continue;
+      if (op === "abaixo" && !(v1 != null && o <= v1)) continue;
+      if (op === "entre" && !(v1 != null && v2 != null && o >= Math.min(v1, v2) && o <= Math.max(v1, v2))) continue;
+    }
+    if (f.valor.on) {
+      if (!(o > 0) || f.valor.min == null) continue;
+      const ps = d.s && d.s[x] ? d.s[x][0] : null, pc = d.c && d.c[x] ? d.c[x][0] : null;
+      const b = f.valor.base;
+      let pct = b === "s" ? ps : b === "c" ? pc : ps != null && pc != null ? Math.min(ps, pc) : null;
+      if (pct == null) continue;
+      if (pct - 100 / o < f.valor.min) continue;
+    }
+    return true;
+  }
+  return false;
+}
+
+// ---- Filtro/alerta "Virada": jogador que pagava X antes do jogo e está perdendo ----
+// cfg = { on, quem:"qualquer"|"fav", op:"acima"|"entre", v1, v2, sit:"p1"|"p2"|"sets", alerta }
+// d = { pre:{A,B} (odds pré-jogo), fav:"A"|"B"|null,
+//       placar:{ etapa, sacaA, sets:[{a,b}] } }  (último item de sets = set em andamento)
+function viradaPadrao() {
+  return { on: false, quem: "qualquer", op: "acima", v1: null, v2: null, sit: "p2", alerta: false };
+}
+// X perdeu / está perdendo o set de índice idx? (mesma cautela do "favorito perdendo o 1º set":
+// com 1 game de diferença no set em andamento só conta se X sacou primeiro, ou seja, foi quebrado)
+function viradaPerdeSet(placar, x, idx) {
+  if (!placar || !placar.sets || placar.sets.length <= idx) return false;
+  const st = placar.sets[idx];
+  const gX = x === "A" ? st.a : st.b;
+  const gO = x === "A" ? st.b : st.a;
+  if (idx < placar.sets.length - 1) return gX < gO; // set já terminado
+  const dif = gO - gX;
+  if (dif <= 0) return false;
+  if (dif >= 2) return true;
+  if (placar.sacaA === null || placar.sacaA === undefined) return false;
+  const t = gX + gO;
+  const xSacaAgora = x === "A" ? placar.sacaA : !placar.sacaA;
+  const xSacouPrimeiro = t % 2 === 0 ? xSacaAgora : !xSacaAgora;
+  const esperado = xSacouPrimeiro ? Math.ceil(t / 2) : Math.floor(t / 2);
+  return gX < esperado;
+}
+function viradaSituacao(placar, x, sit) {
+  if (!placar || !placar.sets || !placar.sets.length) return false;
+  const n = placar.sets.length;
+  if (sit === "p1") return (n > 1 || /^set\s*[2-9]/i.test(placar.etapa || "")) && viradaPerdeSet(placar, x, 0);
+  if (sit === "p2") return n === 2 && viradaPerdeSet(placar, x, 1);
+  // sets: atrás em sets (só sets terminados)
+  let gx = 0, go = 0;
+  placar.sets.slice(0, -1).forEach((s) => {
+    const a = x === "A" ? s.a : s.b, b = x === "A" ? s.b : s.a;
+    if (a > b) gx++; else if (b > a) go++;
+  });
+  return go > gx;
+}
+// Devolve { x, pre } do jogador que cumpre tudo, ou null.
+function viradaAvalia(cfg, d) {
+  if (!cfg || !cfg.on || !d || !d.placar) return null;
+  for (const x of ["A", "B"]) {
+    if (cfg.quem === "fav" && d.fav !== x) continue;
+    const pre = d.pre && d.pre[x] != null ? Number(d.pre[x]) : null;
+    if (!(pre > 0)) continue;
+    if (cfg.op === "acima" && !(cfg.v1 != null && pre >= cfg.v1)) continue;
+    if (cfg.op === "entre" && !(cfg.v1 != null && cfg.v2 != null && pre >= Math.min(cfg.v1, cfg.v2) && pre <= Math.max(cfg.v1, cfg.v2))) continue;
+    if (!viradaSituacao(d.placar, x, cfg.sit)) continue;
+    return { x, pre };
+  }
+  return null;
+}
+let flt=Object.assign({},FDEF,{pisos:[],niv:[],al:filtroAlvoPadrao(),vi:viradaPadrao()},(()=>{try{return JSON.parse(ls.get("flt")||"{}")}catch(e){return{}}})()),fOpen=false;
 let abertos=new Set((()=>{try{return JSON.parse(ls.get("abertos")||"[]")}catch(e){return[]}})());
 const svFlt=()=>ls.set("flt",JSON.stringify(flt)),svAb=()=>ls.set("abertos",JSON.stringify([...abertos]));
 const pisoK=(p)=>/grass|grama|relva/i.test(p||"")?"grass":/clay|saibro|barro/i.test(p||"")?"clay":p?"hard":"";
 const nivelK=(t)=>/qual/i.test(t||"")?"Qualies":/challenger/i.test(t||"")?"Challenger":"Principal";
-function nFlt(){return ["ap","fav","odds","risco","dbl","amo"].filter(k=>flt[k]).length+(flt.odd>0?1:0)+(flt.pisos.length?1:0)+(flt.niv.length?1:0)}
-function lidera(g,tipo){ // 0/1 quem lidera no piso do jogo (52 sem.='s', carreira='c'), -1 sem dado
-  const k=pisoK(g.piso),r=g.rt;if(!k||!r)return -1;
-  const x=r.A[tipo][k],y=r.B[tipo][k];if(!x||!y||x[0]===y[0])return -1;return x[0]>y[0]?0:1}
+function nFlt(){return ["ap","fav","odds","risco","amo"].filter(k=>flt[k]).length+filtroAlvoAtivos(flt.al)+(flt.vi.on?1:0)+(flt.pisos.length?1:0)+(flt.niv.length?1:0)}
+function viTag(g){if(!flt.vi.on||!g.od0)return"";const v=viradaAvalia(flt.vi,{pre:{A:parseFloat(g.od0[0]),B:parseFloat(g.od0[1])},fav:g.fav,placar:{etapa:g.et||"",sacaA:g.sv==="a"?true:g.sv==="b"?false:null,sets:(g.sets||[]).map(s=>({a:s[0],b:s[1]}))}});return v?`<span class="chip" style="background:#fef3c7;color:#92400e">↩ pagava ${v.pre.toFixed(2)}</span>`:""}
 function passa(g){
   const f=flt;
   if(f.ap&&!(g.ap||[]).length)return false;
   if(f.fav&&!g.fav)return false;
   if(f.odds&&!g.od)return false;
   if(f.risco&&!emRisco(g))return false;
-  if(f.odd>0){const o=g.fav&&g.od?parseFloat(g.od[g.fav==="A"?0:1]):0;if(!(o>=f.odd))return false}
   if(f.pisos.length&&!f.pisos.includes(pisoK(g.piso)))return false;
   if(f.niv.length&&!f.niv.includes(nivelK(g.tor)))return false;
-  if(f.dbl){const a=lidera(g,"s"),b=lidera(g,"c");if(a<0||a!==b)return false}
+  if(f.vi.on){const pl={etapa:g.et||"",sacaA:g.sv==="a"?true:g.sv==="b"?false:null,sets:(g.sets||[]).map(s=>({a:s[0],b:s[1]}))};
+   if(!g.od0||!viradaAvalia(f.vi,{pre:{A:parseFloat(g.od0[0]),B:parseFloat(g.od0[1])},fav:g.fav,placar:pl}))return false}
+  {const k=pisoK(g.piso),r=g.rt,pr=(L,t)=>r&&k&&r[L][t][k]?r[L][t][k]:null;
+   if(!filtroAlvoPassa(f.al,{s:{A:pr("A","s"),B:pr("B","s")},c:{A:pr("A","c"),B:pr("B","c")},odd:{A:g.od?parseFloat(g.od[0]):null,B:g.od?parseFloat(g.od[1]):null},fav:g.fav}))return false}
   if(f.amo&&g.rt&&(g.rt.A.lw||g.rt.B.lw))return false;
   return true}
 function filtrosHtml(){
   const cp=(k,v,t)=>`<button class="cp ${(flt[k]||[]).includes(v)?"on":""}" data-fa="${k}" data-v="${v}">${t}</button>`;
   const sw=(k,t)=>`<button class="cp ${flt[k]?"on":""}" data-fk="${k}">${t}</button>`;
+  const fa=(p,t)=>{const[x,v]=p.split("="),[bl,c]=x.split(".");const on=v===undefined?flt.al[bl][c]:flt.al[bl][c]===v;return `<button class="cp ${on?"on":""}" data-fa="${p}">${t}</button>`};
+  const fv=(p,t)=>{const[k,v]=p.split("=");const on=v===undefined?flt.vi[k]:flt.vi[k]===v;return `<button class="cp ${on?"on":""}" data-fv="${p}">${t}</button>`};
   const n=nFlt();
   return `<div class="fb"><button class="h" id="fh"><span>🔎 Filtros${n?" ("+n+")":""}</span><span>${fOpen?"▴":"▾"}</span></button>`+(fOpen?`<div class="gp">
   <small>Jogo</small>${sw("ap","Só com aposta")}${sw("fav","Só com favorito")}${sw("odds","Só com odds")}${sw("risco","⚠ Em risco")}
-  <small>Favorito</small>Odd ≥ <input type="number" id="fodd" step="0.01" min="0" inputmode="decimal" value="${flt.odd||""}" placeholder="—"> ${sw("dbl","Vence carreira + 52 sem.")}${sw("amo","Sem amostra pequena")}
+  <small>Jogador</small>${sw("amo","Sem amostra pequena")}
+  <small>Alvo (maior % no piso)</small>${fa("alvo.on","Ligar")}${fa("alvo.base=52","52 sem.")}${fa("alvo.base=car","Carreira")}${fa("alvo.base=ou","52 OU carr.")}${fa("alvo.base=e","52 E carr.")}${fa("alvo.so=fav","Só ⭐")}
+  <small>Odd do alvo</small>${fa("odd.on","Ligar")}${fa("odd.op=acima","acima de")}${fa("odd.op=entre","entre")}${fa("odd.op=abaixo","abaixo de")} <input type="number" data-fn="odd.v1" step="0.01" inputmode="decimal" value="${flt.al.odd.v1??""}" placeholder="1.80">${flt.al.odd.op==="entre"?` e <input type="number" data-fn="odd.v2" step="0.01" inputmode="decimal" value="${flt.al.odd.v2??""}" placeholder="2.20">`:""}
+  <small>Valor (% − 100÷odd)</small>${fa("valor.on","Ligar")}${fa("valor.base=s","52 sem.")}${fa("valor.base=c","Carreira")}${fa("valor.base=min","A menor")} ≥ + <input type="number" data-fn="valor.min" step="1" inputmode="decimal" value="${flt.al.valor.min??""}" placeholder="8"> pp
+  <small>Virada (pagava X e está perdendo)</small>${fv("on","Ligar")}${fv("quem=qualquer","Qualquer")}${fv("quem=fav","Só ⭐")}<br>Pré-jogo ${fv("op=acima","acima de")}${fv("op=entre","entre")} <input type="number" data-fvn="v1" step="0.01" inputmode="decimal" value="${flt.vi.v1??""}" placeholder="1.80">${flt.vi.op==="entre"?` e <input type="number" data-fvn="v2" step="0.01" inputmode="decimal" value="${flt.vi.v2??""}" placeholder="2.20">`:""}<br>Agora ${fv("sit=p1","Perdeu 1º set")}${fv("sit=p2","Perdendo 2º set")}${fv("sit=sets","Atrás em sets")}
+  <details style="margin-top:6px"><summary style="color:var(--ac);font-size:12px">Avançado do alvo</summary>
+  % do líder ≥ <input type="number" data-fn="alvo.pctMin" inputmode="decimal" value="${flt.al.alvo.pctMin??""}" placeholder="60"> vantagem ≥ <input type="number" data-fn="alvo.vantMin" inputmode="decimal" value="${flt.al.alvo.vantMin??""}" placeholder="10"> jogos ≥ <input type="number" data-fn="alvo.jogosMin" inputmode="decimal" value="${flt.al.alvo.jogosMin??""}" placeholder="8"></details>
   <small>Piso</small>${cp("pisos","clay","Saibro")}${cp("pisos","hard","Dura")}${cp("pisos","grass","Grama")}
   <small>Nível</small>${cp("niv","Principal","Principal")}${cp("niv","Challenger","Challenger")}${cp("niv","Qualies","Qualies")}
   <br><button class="lk" id="fclr">Limpar filtros</button></div>`:"")+`</div>`}
@@ -437,7 +551,7 @@ function renderLive(){
     if(L.some(g=>g.rt))h+=`<div class="tg"><button id="tga">${L.filter(g=>g.rt).every(g=>abertos.has(g.k))?"Recolher todos":"Expandir todos"}</button></div>`;
     h+=[...L].sort((x,y)=>(emRisco(y)-emRisco(x))||((y.ap||[]).length-(x.ap||[]).length)).map(g=>{
       let sa=0,sb=0;g.sets.slice(0,-1).forEach(s=>{if(s[0]>s[1])sa++;else if(s[1]>s[0])sb++});
-      return `<div class="gc"><div class="gh"><span>${esc(g.tor||"")}${g.piso?" · "+esc(g.piso):""}${emRisco(g)?'<span class="chip">⚠ em risco</span>':""}</span></div>
+      return `<div class="gc"><div class="gh"><span>${esc(g.tor||"")}${g.piso?" · "+esc(g.piso):""}${emRisco(g)?'<span class="chip">⚠ em risco</span>':""}${viTag(g)}</span></div>
       <div class="sb"><div class="sbh"><span><span class="lv">● AO VIVO</span> · ${esc(g.et||"")}</span><span>sets ${sa}–${sb}</span></div>${g.sets.length?sbRows(g,false):""}</div>${apHtml(g)}${cardBase(g,abertos.has(g.k))}</div>`}).join("");
   }else{
     const aps=enc.filter(passa).flatMap(g=>g.ap),lucro=aps.reduce((s,a)=>s+a.p,0),ac=aps.filter(a=>a.p>0).length;
@@ -453,8 +567,12 @@ function renderLive(){
   q("#fh").onclick=()=>{fOpen=!fOpen;render()};
   app.querySelectorAll("[data-fk]").forEach(b=>b.onclick=()=>{flt[b.dataset.fk]=flt[b.dataset.fk]?0:1;svFlt();render()});
   app.querySelectorAll("[data-fa]").forEach(b=>b.onclick=()=>{const a=flt[b.dataset.fa],v=b.dataset.v,i=a.indexOf(v);i<0?a.push(v):a.splice(i,1);svFlt();render()});
-  const fo=q("#fodd");if(fo)fo.onchange=()=>{flt.odd=parseFloat(fo.value)||0;svFlt();render()};
-  const fc=q("#fclr");if(fc)fc.onclick=()=>{flt=Object.assign({},FDEF,{pisos:[],niv:[]});svFlt();render()};
+  app.querySelectorAll("[data-fa]").forEach(b=>b.onclick=()=>{const[x,v]=b.dataset.fa.split("="),[bl,c]=x.split(".");
+    if(v===undefined)flt.al[bl][c]=!flt.al[bl][c];else{flt.al[bl][c]=(c==="so"&&flt.al[bl][c]===v)?"qualquer":v;flt.al[bl].on=true}svFlt();render()});
+  app.querySelectorAll("[data-fv]").forEach(b=>b.onclick=()=>{const[k,v]=b.dataset.fv.split("=");if(v===undefined)flt.vi[k]=!flt.vi[k];else{flt.vi[k]=v;flt.vi.on=true}svFlt();render()});
+  app.querySelectorAll("[data-fvn]").forEach(i=>i.onchange=()=>{const v=parseFloat(String(i.value).replace(",","."));flt.vi[i.dataset.fvn]=Number.isFinite(v)?v:null;svFlt();render()});
+  app.querySelectorAll("[data-fn]").forEach(i=>i.onchange=()=>{const[bl,c]=i.dataset.fn.split("."),v=parseFloat(String(i.value).replace(",","."));flt.al[bl][c]=Number.isFinite(v)?v:null;svFlt();render()});
+  const fc=q("#fclr");if(fc)fc.onclick=()=>{flt=Object.assign({},FDEF,{pisos:[],niv:[],al:filtroAlvoPadrao(),vi:viradaPadrao()});svFlt();render()};
   app.querySelectorAll("[data-cv]").forEach(b=>b.onclick=()=>{const k=b.dataset.cv;abertos.has(k)?abertos.delete(k):abertos.add(k);svAb();render()});
   const tg=q("#tga");if(tg)tg.onclick=()=>{const L=live.filter(passa).filter(g=>g.rt);L.every(g=>abertos.has(g.k))?L.forEach(g=>abertos.delete(g.k)):L.forEach(g=>abertos.add(g.k));svAb();render()};
 }
@@ -469,7 +587,7 @@ async function lerFeed(){
     feed=JSON.parse(f.content);feedErro="";
     $("#st").textContent="atualizado "+new Date(feed.t).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
   }catch(e){feedErro=String(e.message||e)}
-  lendoFeed=false;if(modo==="live"&&!(document.activeElement&&document.activeElement.id==="fodd"))render();
+  lendoFeed=false;if(modo==="live"&&!(document.activeElement&&document.activeElement.tagName==="INPUT"))render();
 }
 function setModo(m){cfgOn=false;modo=m;ls.set("modo",m);$("#m-live").classList.toggle("on",m==="live");$("#m-ct").classList.toggle("on",m==="ct");if(m==="live")lerFeed();render()}
 $("#m-live").onclick=()=>setModo("live");$("#m-ct").onclick=()=>setModo("ct");
