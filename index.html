@@ -50,9 +50,10 @@ button,input{font:inherit;color:inherit}
 .ex th{color:var(--mut);font-weight:600;padding:2px;text-align:center}.ex td{text-align:center;padding:3px 2px;border-top:1px solid var(--bd)}
 .ex th:first-child,.ex td:first-child{text-align:left}.ex td.hl{background:rgba(91,140,255,.15);font-weight:700}.ex td small{display:block;color:var(--mut);font-size:9px}
 .ex .fv{background:var(--bg);border-radius:8px;padding:7px 9px;line-height:1.6}
+.eg{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;padding:4px 0 8px;border-bottom:1px solid var(--bd)}.eg>b{grid-column:1/-1}.eg span{font-size:11px;color:var(--mut)}.eg span b{display:block;font-size:13px;color:var(--tx)}
 .stale{margin:0 14px 10px;padding:8px 10px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:12px}
 </style></head><body>
-<header><div><b>🎾 Tennis Duel</b> <small>v1.5</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
+<header><div><b>🎾 Tennis Duel</b> <small>v1.6</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
 <div class="mt"><button id="m-live" class="on">Ao vivo</button><button id="m-ct">💰 Contas</button></div>
 <div id="app"></div>
 <script>
@@ -295,7 +296,7 @@ const FDEF={ap:0,fav:0,odds:0,risco:0,amo:0,pisos:[],niv:[]};
 //       c:{A,B} (carreira), odd:{A:num|null,B:num|null}, fav:"A"|"B"|null }
 function filtroAlvoPadrao() {
   return {
-    alvo: { on: false, base: "ou", so: "qualquer", pctMin: null, vantMin: null, jogosMin: null },
+    alvo: { on: false, base: "ou", pctMin: null, vantMin: null, jogosMin: null },
     odd: { on: false, op: "acima", v1: null, v2: null },
     valor: { on: false, base: "min", min: null },
   };
@@ -321,7 +322,6 @@ function filtroAlvoPassa(f, d) {
       const q52 = lidera(d.s, x), qc = lidera(d.c, x);
       const ok = f.alvo.base === "52" ? q52 : f.alvo.base === "car" ? qc : f.alvo.base === "e" ? q52 && qc : q52 || qc;
       if (!ok) continue;
-      if (f.alvo.so === "fav" && d.fav !== x) continue;
     }
     const o = d.odd && d.odd[x] != null ? Number(d.odd[x]) : null;
     if (f.odd.on) {
@@ -345,11 +345,11 @@ function filtroAlvoPassa(f, d) {
 }
 
 // ---- Filtro/alerta "Virada": jogador que pagava X antes do jogo e está perdendo ----
-// cfg = { on, quem:"qualquer"|"fav", op:"acima"|"entre", v1, v2, sit:"p1"|"p2"|"sets", alerta }
+// cfg = { on, op:"acima"|"entre", v1, v2, sit:"p1"|"p2"|"sets", alerta }
 // d = { pre:{A,B} (odds pré-jogo), fav:"A"|"B"|null,
 //       placar:{ etapa, sacaA, sets:[{a,b}] } }  (último item de sets = set em andamento)
 function viradaPadrao() {
-  return { on: false, quem: "qualquer", op: "acima", v1: null, v2: null, sit: "p2", alerta: false };
+  return { on: false, op: "acima", v1: null, v2: null, sit: "p2", alerta: false };
 }
 // X perdeu / está perdendo o set de índice idx? (mesma cautela do "favorito perdendo o 1º set":
 // com 1 game de diferença no set em andamento só conta se X sacou primeiro, ou seja, foi quebrado)
@@ -386,7 +386,6 @@ function viradaSituacao(placar, x, sit) {
 function viradaAvalia(cfg, d) {
   if (!cfg || !cfg.on || !d || !d.placar) return null;
   for (const x of ["A", "B"]) {
-    if (cfg.quem === "fav" && d.fav !== x) continue;
     const pre = d.pre && d.pre[x] != null ? Number(d.pre[x]) : null;
     if (!(pre > 0)) continue;
     if (cfg.op === "acima" && !(cfg.v1 != null && pre >= cfg.v1)) continue;
@@ -401,12 +400,11 @@ let abertos=new Set((()=>{try{return JSON.parse(ls.get("abertos")||"[]")}catch(e
 const svFlt=()=>ls.set("flt",JSON.stringify(flt)),svAb=()=>ls.set("abertos",JSON.stringify([...abertos]));
 const pisoK=(p)=>/grass|grama|relva/i.test(p||"")?"grass":/clay|saibro|barro/i.test(p||"")?"clay":p?"hard":"";
 const nivelK=(t)=>/qual/i.test(t||"")?"Qualies":/challenger/i.test(t||"")?"Challenger":"Principal";
-function nFlt(){return ["ap","fav","odds","risco","amo"].filter(k=>flt[k]).length+filtroAlvoAtivos(flt.al)+(flt.vi.on?1:0)+(flt.pisos.length?1:0)+(flt.niv.length?1:0)}
+function nFlt(){return ["ap","odds","risco","amo"].filter(k=>flt[k]).length+filtroAlvoAtivos(flt.al)+(flt.vi.on?1:0)+(flt.pisos.length?1:0)+(flt.niv.length?1:0)}
 function viTag(g){if(!flt.vi.on||!g.od0)return"";const v=viradaAvalia(flt.vi,{pre:{A:parseFloat(g.od0[0]),B:parseFloat(g.od0[1])},fav:g.fav,placar:{etapa:g.et||"",sacaA:g.sv==="a"?true:g.sv==="b"?false:null,sets:(g.sets||[]).map(s=>({a:s[0],b:s[1]}))}});return v?`<span class="chip" style="background:#fef3c7;color:#92400e">↩ pagava ${v.pre.toFixed(2)}</span>`:""}
 function passa(g){
   const f=flt;
   if(f.ap&&!(g.ap||[]).length)return false;
-  if(f.fav&&!g.fav)return false;
   if(f.odds&&!g.od)return false;
   if(f.risco&&!emRisco(g))return false;
   if(f.pisos.length&&!f.pisos.includes(pisoK(g.piso)))return false;
@@ -424,12 +422,12 @@ function filtrosHtml(){
   const fv=(p,t)=>{const[k,v]=p.split("=");const on=v===undefined?flt.vi[k]:flt.vi[k]===v;return `<button class="cp ${on?"on":""}" data-fv="${p}">${t}</button>`};
   const n=nFlt();
   return `<div class="fb"><button class="h" id="fh"><span>🔎 Filtros${n?" ("+n+")":""}</span><span>${fOpen?"▴":"▾"}</span></button>`+(fOpen?`<div class="gp">
-  <small>Jogo</small>${sw("ap","Só com aposta")}${sw("fav","Só com favorito")}${sw("odds","Só com odds")}${sw("risco","⚠ Em risco")}
+  <small>Jogo</small>${sw("ap","Só com aposta")}${sw("odds","Só com odds")}${sw("risco","⚠ Em risco")}
   <small>Jogador</small>${sw("amo","Sem amostra pequena")}
-  <small>Alvo (maior % no piso)</small>${fa("alvo.on","Ligar")}${fa("alvo.base=52","52 sem.")}${fa("alvo.base=car","Carreira")}${fa("alvo.base=ou","52 OU carr.")}${fa("alvo.base=e","52 E carr.")}${fa("alvo.so=fav","Só ⭐")}
+  <small>Alvo (maior % no piso)</small>${fa("alvo.on","Ligar")}${fa("alvo.base=52","52 sem.")}${fa("alvo.base=car","Carreira")}${fa("alvo.base=ou","52 OU carr.")}${fa("alvo.base=e","52 E carr.")}
   <small>Odd do alvo</small>${fa("odd.on","Ligar")}${fa("odd.op=acima","acima de")}${fa("odd.op=entre","entre")}${fa("odd.op=abaixo","abaixo de")} <input type="number" data-fn="odd.v1" step="0.01" inputmode="decimal" value="${flt.al.odd.v1??""}" placeholder="1.80">${flt.al.odd.op==="entre"?` e <input type="number" data-fn="odd.v2" step="0.01" inputmode="decimal" value="${flt.al.odd.v2??""}" placeholder="2.20">`:""}
   <small>Valor (% − 100÷odd)</small>${fa("valor.on","Ligar")}${fa("valor.base=s","52 sem.")}${fa("valor.base=c","Carreira")}${fa("valor.base=min","A menor")} ≥ + <input type="number" data-fn="valor.min" step="1" inputmode="decimal" value="${flt.al.valor.min??""}" placeholder="8"> pp
-  <small>Virada (pagava X e está perdendo)</small>${fv("on","Ligar")}${fv("quem=qualquer","Qualquer")}${fv("quem=fav","Só ⭐")}<br>Pré-jogo ${fv("op=acima","acima de")}${fv("op=entre","entre")} <input type="number" data-fvn="v1" step="0.01" inputmode="decimal" value="${flt.vi.v1??""}" placeholder="1.80">${flt.vi.op==="entre"?` e <input type="number" data-fvn="v2" step="0.01" inputmode="decimal" value="${flt.vi.v2??""}" placeholder="2.20">`:""}<br>Agora ${fv("sit=p1","Perdeu 1º set")}${fv("sit=p2","Perdendo 2º set")}${fv("sit=sets","Atrás em sets")}
+  <small>Virada (pagava X e está perdendo)</small>${fv("on","Ligar")}<br>Pré-jogo ${fv("op=acima","acima de")}${fv("op=entre","entre")} <input type="number" data-fvn="v1" step="0.01" inputmode="decimal" value="${flt.vi.v1??""}" placeholder="1.80">${flt.vi.op==="entre"?` e <input type="number" data-fvn="v2" step="0.01" inputmode="decimal" value="${flt.vi.v2??""}" placeholder="2.20">`:""}<br>Agora ${fv("sit=p1","Perdeu 1º set")}${fv("sit=p2","Perdendo 2º set")}${fv("sit=sets","Atrás em sets")}
   <details style="margin-top:6px"><summary style="color:var(--ac);font-size:12px">Avançado do alvo</summary>
   % do líder ≥ <input type="number" data-fn="alvo.pctMin" inputmode="decimal" value="${flt.al.alvo.pctMin??""}" placeholder="60"> vantagem ≥ <input type="number" data-fn="alvo.vantMin" inputmode="decimal" value="${flt.al.alvo.vantMin??""}" placeholder="10"> jogos ≥ <input type="number" data-fn="alvo.jogosMin" inputmode="decimal" value="${flt.al.alvo.jogosMin??""}" placeholder="8"></details>
   <small>Piso</small>${cp("pisos","clay","Saibro")}${cp("pisos","hard","Dura")}${cp("pisos","grass","Grama")}
@@ -437,11 +435,8 @@ function filtrosHtml(){
   <br><button class="lk" id="fclr">Limpar filtros</button></div>`:"")+`</div>`}
 function retHtml(g){
   const r=g.rt;if(!r)return"";const pk=pisoK(g.piso);
-  const tb=(t,tipo)=>`<b>${t}</b><table><tr><th></th><th>Saibro</th><th>Dura</th><th>Grama</th></tr>`+[["A",g.a],["B",g.b]].map(([L,nm])=>`<tr><td>${esc(nc(nm))}${g.fav===L?" ⭐":""}</td>`+["clay","hard","grass"].map(k=>{const v=r[L][tipo][k];return `<td class="${k===pk?"hl":""}">${v?Math.round(v[0])+"%<small>"+v[1]+" j</small>":"—"}</td>`}).join("")+`</tr>`).join("")+`</table>`;
-  let fv="";const f=r.fv;
-  if(f){const nm=(x)=>x==="A"?nc(g.a):x==="B"?nc(g.b):"";const ln=(t,p,w)=>p?`<br>${t} — ${p[0]===p[1]?p[0]+" a "+p[1]+" (empate)":Math.max(...p)+" a "+Math.min(...p)+" "+esc(nm(p[0]>p[1]?"A":"B"))}`:"";
-    fv=`<div class="fv"><b>Favorito: ${esc(nm(f.f||f.pz)||"indefinido")}</b>${f.pt?`<br>${f.pt[0]} a ${f.pt[1]} pontos no total`:""}${f.pz?`<br>Piso — ${esc(nm(f.pz))}`:""}${ln("Overall",f.ov)}${ln("Serve &amp; Return",f.sr)}</div>`}
-  return `<div class="ex">${tb("52 semanas","s")}${tb("Carreira","c")}${fv}</div>`}
+  const tb=(t,tipo)=>`<b>${t}</b><table><tr><th></th><th>Saibro</th><th>Dura</th><th>Grama</th></tr>`+[["A",g.a],["B",g.b]].map(([L,nm])=>`<tr><td>${esc(nc(nm))}</td>`+["clay","hard","grass"].map(k=>{const v=r[L][tipo][k];return `<td class="${k===pk?"hl":""}">${v?Math.round(v[0])+"%<small>"+v[1]+" j</small>":"—"}</td>`}).join("")+`</tr>`).join("")+`</table>`;
+  return `<div class="ex">${tb("52 semanas","s")}${tb("Carreira","c")}</div>`}
 function cardBase(g,aberto){
   if(!g.rt)return"";
   return (aberto?retHtml(g):"")+`<button class="cv" data-cv="${esc(g.k)}">${aberto?"▴ recolher":"▾ retrospecto"}</button>`}
@@ -519,10 +514,10 @@ function renderContas(){
 const nc=(n)=>curto(n);
 function sbRows(g,fim){
   const ns=g.sets.length,cur=fim?-1:ns-1;
-  const row=(i)=>{const nome=i?g.b:g.a,isFav=g.fav===(i?"B":"A");
+  const row=(i)=>{const nome=i?g.b:g.a;let venc=false;if(fim){let sa=0,sb=0;g.sets.forEach(s=>{if(s[0]>s[1])sa++;else if(s[1]>s[0])sb++});venc=i?sb>sa:sa>sb}
     const cells=g.sets.map((s,k)=>{const m=s[i],o=s[1-i];return `<span class="st ${k===cur?"cur":m>o?"w":""}">${m}</span>`}).join("");
     const pt=!fim&&g.pt?g.pt[i]:"",sv=g.sv===(i?"b":"a");
-    return `<div class="sr"><span class="sv ${sv&&!fim?"on":""}"></span><span class="nm">${esc(nc(nome))}${isFav?" ⭐":""}</span>${cells}${fim?"":`<span class="pt">${pt==null?"":esc(pt)}</span><span class="od">${g.od?esc(g.od[i]):""}</span>`}</div>`};
+    return `<div class="sr"><span class="sv ${sv&&!fim?"on":""}"></span><span class="nm" style="${venc?"color:#fff;font-weight:800":""}">${esc(nc(nome))}</span>${cells}${fim?`<span class="od" title="odd pré-jogo">${g.od0?Number(g.od0[i]).toFixed(2):""}</span>`:`<span class="pt">${pt==null?"":esc(pt)}</span><span class="od">${g.od?esc(g.od[i]):""}</span>`}</div>`};
   return row(0)+row(1);
 }
 function apHtml(g){
@@ -530,6 +525,19 @@ function apHtml(g){
     const risco=!neg?"":"";
     return `<div class="ga"><span>💰 ${esc(nc(nome))}<small>${Number(a.c).toLocaleString("pt-BR",{maximumFractionDigits:2})} cotas · apostado ${din(a.s)}${a.st==="ganhou"?" · ganhou":a.st==="perdeu"?" · perdeu":""}</small></span><b class="${cls(a.p)}">${din(a.p,1)} (${a.pc>=0?"+":"−"}${Math.abs(a.pc).toFixed(0)}%)</b></div>`}).join("");
 }
+const money=(v)=>din(v);
+function apEncHtml(g){
+  return (g.ap||[]).map(a=>{const nome=a.l==="A"?g.a:a.l==="B"?g.b:a.o;const pr=a.c>0?a.s/a.c:null;
+    return `<div class="ga"><span>💰 ${esc(nc(nome))}${pr?` · a ${pr.toFixed(2).replace(".",",")}`:""} · ${Number(a.c).toLocaleString("pt-BR",{maximumFractionDigits:2})} cotas<small>apostado ${money(a.s)} → recebeu ${money(a.r||0)}</small></span><b class="${cls(a.p)}">${din(a.p,1)}${a.st==="ganhou"?" ganhou":a.st==="perdeu"?" perdeu":""}</b></div>`}).join("");
+}
+function duracao(ms){if(!(ms>60000))return"";const m=Math.round(ms/60000);return m>=60?Math.floor(m/60)+"h"+String(m%60).padStart(2,"0"):m+" min"}
+function exEncHtml(g){
+  const hh=(ts)=>new Date(ts).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+  const bets=(g.ap||[]).map(a=>{const nome=a.l==="A"?g.a:a.l==="B"?g.b:a.o;const pr=a.c>0?a.s/a.c:null;
+    return `<div class="eg"><b>${esc(nc(nome))}</b><span>Apostado<b>${money(a.s)}</b></span><span>Recebeu<b>${money(a.r||0)}</b></span><span>Lucro<b class="${cls(a.p)}">${din(a.p,1)} (${a.pc>=0?"+":"−"}${Math.abs(a.pc).toFixed(0)}%)</b></span><span>Preço → odd<b>${pr?pr.toFixed(2).replace(".",",")+" → "+(1/pr).toFixed(2).replace(".",","):"—"}</b></span><span>Cotas<b>${Number(a.c).toLocaleString("pt-BR",{maximumFractionDigits:2})}</b></span><span>Aposta às<b>${a.ts?hh(a.ts*1000):"—"}</b></span></div>`}).join("");
+  const dur=g.t0&&g.fim?duracao(g.fim-g.t0):"";
+  const jogo=`<div class="eg"><b>Jogo</b>${g.fim?`<span>Terminou<b>${horaFim(g.fim)}</b></span>`:""}<span>Sets<b>${g.sets.map(s=>s[0]+"-"+s[1]).join(" ")}</b></span>${dur?`<span>Acompanhado ao vivo<b>${dur}</b></span>`:""}${g.od0?`<span>Odd pré-jogo<b>${Number(g.od0[0]).toFixed(2)} × ${Number(g.od0[1]).toFixed(2)}</b></span>`:""}</div>`;
+  return `<div class="ex">${bets}${jogo}</div>`+retHtml(g)}
 function emRisco(g){ // aposta no jogador que está atrás em sets
   if(!g.sets.length||!(g.ap||[]).length)return false;
   let sa=0,sb=0;g.sets.slice(0,-1).forEach(s=>{if(s[0]>s[1])sa++;else if(s[1]>s[0])sb++});
@@ -559,7 +567,7 @@ function renderLive(){
     const E=enc.filter(passa);if(!E.length)h+=`<div class="vazio">Nenhum jogo encerrado com aposta${enc.length?" nesses filtros":""}.</div>`;
     h+=E.map(g=>{let sa=0,sb=0;g.sets.forEach(s=>{if(s[0]>s[1])sa++;else if(s[1]>s[0])sb++});const tot=g.ap.reduce((s,a)=>s+a.p,0);
       return `<div class="gc"><div class="gh"><span>🏁 ${g.fim?"terminou "+horaFim(g.fim)+" · ":""}${esc(g.tor||"")}</span><b class="${cls(tot)}">${din(tot,1)}</b></div>
-      <div class="sb"><div class="sbh"><span><b>ENCERRADO</b></span><span>sets ${sa}–${sb}</span></div>${g.sets.length?sbRows(g,true):""}</div>${apHtml(g)}${cardBase(g,abertos.has(g.k))}</div>`}).join("");
+      <div class="sb"><div class="sbh"><span><b>ENCERRADO</b></span><span>sets ${sa}–${sb}</span></div>${g.sets.length?sbRows(g,true):""}</div>${apEncHtml(g)}${abertos.has(g.k)?exEncHtml(g):""}<button class="cv" data-cv="${esc(g.k)}">${abertos.has(g.k)?"▴ recolher":"▾ detalhes"}</button></div>`}).join("");
   }
   app.innerHTML=h;
   app.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{sub=b.dataset.s;render()});
