@@ -52,8 +52,34 @@ button,input{font:inherit;color:inherit}
 .ex .fv{background:var(--bg);border-radius:8px;padding:7px 9px;line-height:1.6}
 .eg{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;padding:4px 0 8px;border-bottom:1px solid var(--bd)}.eg>b{grid-column:1/-1}.eg span{font-size:11px;color:var(--mut)}.eg span b{display:block;font-size:13px;color:var(--tx)}
 .stale{margin:0 14px 10px;padding:8px 10px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:12px}
+/* regras de filtro */
+.rg-box{--border:var(--bd);--surface-1:var(--card);--text-secondary:var(--mut)}
+.rg-box { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+.rg-r { border: 0.5px solid var(--border); border-radius: 8px; background: var(--surface-1); padding: 6px 8px; display: flex; flex-direction: column; gap: 5px; }
+.rg-r.rg-off { opacity: .5; }
+.rg-h { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.rg-sub { color: var(--text-secondary); flex: 1; }
+.rg-c { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; }
+.rg-t { color: var(--text-secondary); }
+.rg-s, .rg-add { font-size: 12px; padding: 3px 4px; border: 0.5px solid var(--border); border-radius: 6px; background: transparent; color: inherit; max-width: 100%; }
+.rg-n { width: 54px; font-size: 12px; padding: 3px 4px; border: 0.5px solid var(--border); border-radius: 6px; background: transparent; color: inherit; }
+.rg-x, .rg-cx { border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px; }
+.rg-sw { width: 28px; height: 16px; border-radius: 8px; border: 0; background: #c9c7bf; position: relative; cursor: pointer; padding: 0; }
+.rg-sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: left .15s; }
+.rg-sw.on { background: #7c3aed; }
+.rg-sw.on::after { left: 14px; }
+.rg-al { border: 0.5px solid var(--border); background: transparent; color: var(--text-secondary); border-radius: 10px; font-size: 11px; padding: 2px 7px; cursor: pointer; }
+.rg-al.on { border-color: #b9a0f5; color: #5b21b6; background: rgba(124,58,237,.1); }
+.rg-v { font-size: 12px; color: var(--text-secondary); }
+.rg-f, .rg-sv { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
+.rg-lk { border: 0; background: transparent; color: #6d28d9; cursor: pointer; font-size: 12px; padding: 2px 0; }
+.rg-chip { display: inline-flex; align-items: center; border: 0.5px solid var(--border); border-radius: 10px; padding: 0 2px 0 8px; }
+.rg-chip button:first-child { border: 0; background: transparent; color: inherit; font-size: 12px; padding: 3px 0; cursor: pointer; }
+.rg-nome { width: 90px; font-size: 12px; padding: 3px 5px; border: 0.5px solid var(--border); border-radius: 6px; background: transparent; color: inherit; }
+.filtros-mais > summary { font-size: 12px; color: var(--text-secondary); cursor: pointer; margin: 4px 0; }
+.fmais>summary{font-size:12px;color:var(--ac);margin:6px 0}
 </style></head><body>
-<header><div><b>🎾 Tennis Duel</b> <small>v1.6</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
+<header><div><b>🎾 Tennis Duel</b> <small>v1.7</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
 <div class="mt"><button id="m-live" class="on">Ao vivo</button><button id="m-ct">💰 Contas</button></div>
 <div id="app"></div>
 <script>
@@ -290,79 +316,83 @@ const cls=(v)=>v>0?"g":v<0?"r":"";
 const curto=(n)=>{const p=String(n||"").trim().split(/\s+/);return p.length<2?p[0]||"":`${p[0][0].toUpperCase()}. ${p[p.length-1]}`};
 const ls={get:(k)=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 let modo=ls.get("modo")||"live",sub="vivo",feed=null,feedErro="",gistId=ls.get("gist")||"",gtoken=ls.get("gtoken")||"",carteira=ls.get("carteira")||"",bets=[],erro="",lidoEm=0,tipo="dia",ref=new Date(),aberta=ls.get("abertas")==="1";
-const FDEF={ap:0,fav:0,odds:0,risco:0,amo:0,pisos:[],niv:[]};
-// Filtros "Jogador-alvo" + Odd + Valor (puro, sem DOM). Usado na extensão e inlined no mobile.
-// d = { s:{A:[pct,jogos]|null,B:...}  (52 sem. no piso do jogo),
-//       c:{A,B} (carreira), odd:{A:num|null,B:num|null}, fav:"A"|"B"|null }
-function filtroAlvoPadrao() {
-  return {
-    alvo: { on: false, base: "ou", pctMin: null, vantMin: null, jogosMin: null },
-    odd: { on: false, op: "acima", v1: null, v2: null },
-    valor: { on: false, base: "min", min: null },
-  };
+const FDEF={ap:0,odds:0,risco:0,amo:0,pisos:[],niv:[]};
+// Filtros por REGRAS (extensão e mobile). Uma regra = lista de condições sobre UM jogador (E).
+// Várias regras ligadas = alternativas (OU). Sem regra ativa => passa tudo.
+// d = { s:{A:[pct,jogos]|null,B}, c:{A,B}, pre:{A:odd|null,B}, placar:{etapa,sacaA,sets:[{a,b}]}|null }
+// Condições: {t:"pct",per,op,v1,v2} {t:"rel",per,rel,vant} {t:"odd",op,v1,v2}
+//            {t:"valor",base,min} {t:"sit",sit}   per: "s"|"c"|"ou"|"e"   op: "acima"(>=)|"abaixo"(<=)|"entre"
+function regraNova() { return { on: true, alerta: false, conds: [] }; }
+function condNova(t) {
+  if (t === "pct") return { t, per: "s", op: "acima", v1: 50, v2: null };
+  if (t === "rel") return { t, per: "s", rel: "vence", vant: null };
+  if (t === "odd") return { t, op: "acima", v1: 2, v2: null };
+  if (t === "valor") return { t, base: "min", min: 8 };
+  return { t: "sit", sit: "p2" };
 }
-function filtroAlvoAtivos(f) {
-  return (f.alvo.on ? 1 : 0) + (f.odd.on ? 1 : 0) + (f.valor.on ? 1 : 0);
+function regraAtiva(r) { return !!(r && r.on && r.conds && r.conds.length); }
+function regrasAtivas(rs) { return (rs || []).filter(regraAtiva).length; }
+
+function _opOk(op, v1, v2, val) {
+  if (val == null || !(val === val)) return false;
+  if (op === "acima") return v1 != null && val >= v1;
+  if (op === "abaixo") return v1 != null && val <= v1;
+  if (op === "entre") return v1 != null && v2 != null && val >= Math.min(v1, v2) && val <= Math.max(v1, v2);
+  return false;
 }
-function filtroAlvoPassa(f, d) {
-  if (!f.alvo.on && !f.odd.on && !f.valor.on) return true;
-  const outro = (x) => (x === "A" ? "B" : "A");
-  const lidera = (per, x) => {
-    const a = per && per[x], b = per && per[outro(x)];
-    if (!a || !b || a[0] == null || b[0] == null) return false;
-    if (!(a[0] > b[0])) return false;
-    const al = f.alvo;
-    if (al.pctMin != null && a[0] < al.pctMin) return false;
-    if (al.vantMin != null && a[0] - b[0] < al.vantMin) return false;
-    if (al.jogosMin != null && !(a[1] >= al.jogosMin)) return false;
-    return true;
-  };
-  for (const x of ["A", "B"]) {
-    if (f.alvo.on) {
-      const q52 = lidera(d.s, x), qc = lidera(d.c, x);
-      const ok = f.alvo.base === "52" ? q52 : f.alvo.base === "car" ? qc : f.alvo.base === "e" ? q52 && qc : q52 || qc;
-      if (!ok) continue;
-    }
-    const o = d.odd && d.odd[x] != null ? Number(d.odd[x]) : null;
-    if (f.odd.on) {
-      if (!(o > 0)) continue;
-      const { op, v1, v2 } = f.odd;
-      if (op === "acima" && !(v1 != null && o >= v1)) continue;
-      if (op === "abaixo" && !(v1 != null && o <= v1)) continue;
-      if (op === "entre" && !(v1 != null && v2 != null && o >= Math.min(v1, v2) && o <= Math.max(v1, v2))) continue;
-    }
-    if (f.valor.on) {
-      if (!(o > 0) || f.valor.min == null) continue;
-      const ps = d.s && d.s[x] ? d.s[x][0] : null, pc = d.c && d.c[x] ? d.c[x][0] : null;
-      const b = f.valor.base;
-      let pct = b === "s" ? ps : b === "c" ? pc : ps != null && pc != null ? Math.min(ps, pc) : null;
-      if (pct == null) continue;
-      if (pct - 100 / o < f.valor.min) continue;
-    }
-    return true;
+function _per(per, fn) { // aplica fn("s"|"c") conforme o período
+  if (per === "s" || per === "c") return fn(per);
+  if (per === "e") return fn("s") && fn("c");
+  return fn("s") || fn("c"); // "ou"
+}
+function _outro(x) { return x === "A" ? "B" : "A"; }
+
+function condOk(c, x, d) {
+  if (c.t === "pct") {
+    return _per(c.per, (p) => { const a = d[p] && d[p][x]; return !!a && a[0] != null && _opOk(c.op, c.v1, c.v2, a[0]); });
   }
+  if (c.t === "rel") {
+    return _per(c.per, (p) => {
+      const a = d[p] && d[p][x], b = d[p] && d[p][_outro(x)];
+      if (!a || !b || a[0] == null || b[0] == null) return false;
+      const dif = c.rel === "perde" ? b[0] - a[0] : a[0] - b[0];
+      return dif > 0 && (c.vant == null || dif >= c.vant);
+    });
+  }
+  if (c.t === "odd") return _opOk(c.op, c.v1, c.v2, d.pre && d.pre[x] != null ? Number(d.pre[x]) : null);
+  if (c.t === "valor") {
+    const o = d.pre && d.pre[x] != null ? Number(d.pre[x]) : null;
+    if (!(o > 0) || c.min == null) return false;
+    const ps = d.s && d.s[x] ? d.s[x][0] : null, pc = d.c && d.c[x] ? d.c[x][0] : null;
+    const pct = c.base === "s" ? ps : c.base === "c" ? pc : ps != null && pc != null ? Math.min(ps, pc) : null;
+    return pct != null && pct - 100 / o >= c.min;
+  }
+  if (c.t === "sit") return !!d.placar && viradaSituacao(d.placar, x, c.sit);
   return false;
 }
 
-// ---- Filtro/alerta "Virada": jogador que pagava X antes do jogo e está perdendo ----
-// cfg = { on, op:"acima"|"entre", v1, v2, sit:"p1"|"p2"|"sets", alerta }
-// d = { pre:{A,B} (odds pré-jogo), fav:"A"|"B"|null,
-//       placar:{ etapa, sacaA, sets:[{a,b}] } }  (último item de sets = set em andamento)
-function viradaPadrao() {
-  return { on: false, op: "acima", v1: null, v2: null, sit: "p2", alerta: false };
+// Devolve { x, regra } da 1ª regra ativa que algum jogador cumpre; null se nenhuma. Sem regra ativa: { x:null, regra:-1 }.
+function regrasAvalia(regras, d) {
+  const ativas = (regras || []).map((r, i) => [r, i]).filter(([r]) => regraAtiva(r));
+  if (!ativas.length) return { x: null, regra: -1 };
+  for (const [r, i] of ativas) {
+    for (const x of ["A", "B"]) if (r.conds.every((c) => condOk(c, x, d))) return { x, regra: i };
+  }
+  return null;
 }
-// X perdeu / está perdendo o set de índice idx? (mesma cautela do "favorito perdendo o 1º set":
-// com 1 game de diferença no set em andamento só conta se X sacou primeiro, ou seja, foi quebrado)
+function regrasPassam(regras, d) { return !!regrasAvalia(regras, d); }
+
+// ---- Situação ao vivo (placar com sets[{a,b}], o último é o set em andamento) ----
 function viradaPerdeSet(placar, x, idx) {
   if (!placar || !placar.sets || placar.sets.length <= idx) return false;
   const st = placar.sets[idx];
   const gX = x === "A" ? st.a : st.b;
   const gO = x === "A" ? st.b : st.a;
-  if (idx < placar.sets.length - 1) return gX < gO; // set já terminado
+  if (idx < placar.sets.length - 1) return gX < gO;
   const dif = gO - gX;
   if (dif <= 0) return false;
   if (dif >= 2) return true;
-  if (placar.sacaA === null || placar.sacaA === undefined) return false;
+  if (placar.sacaA === null || placar.sacaA === undefined) return false; // 1 game só conta se foi quebrado
   const t = gX + gO;
   const xSacaAgora = x === "A" ? placar.sacaA : !placar.sacaA;
   const xSacouPrimeiro = t % 2 === 0 ? xSacaAgora : !xSacaAgora;
@@ -374,7 +404,6 @@ function viradaSituacao(placar, x, sit) {
   const n = placar.sets.length;
   if (sit === "p1") return (n > 1 || /^set\s*[2-9]/i.test(placar.etapa || "")) && viradaPerdeSet(placar, x, 0);
   if (sit === "p2") return n === 2 && viradaPerdeSet(placar, x, 1);
-  // sets: atrás em sets (só sets terminados)
   let gx = 0, go = 0;
   placar.sets.slice(0, -1).forEach((s) => {
     const a = x === "A" ? s.a : s.b, b = x === "A" ? s.b : s.a;
@@ -382,26 +411,103 @@ function viradaSituacao(placar, x, sit) {
   });
   return go > gx;
 }
-// Devolve { x, pre } do jogador que cumpre tudo, ou null.
-function viradaAvalia(cfg, d) {
-  if (!cfg || !cfg.on || !d || !d.placar) return null;
-  for (const x of ["A", "B"]) {
-    const pre = d.pre && d.pre[x] != null ? Number(d.pre[x]) : null;
-    if (!(pre > 0)) continue;
-    if (cfg.op === "acima" && !(cfg.v1 != null && pre >= cfg.v1)) continue;
-    if (cfg.op === "entre" && !(cfg.v1 != null && cfg.v2 != null && pre >= Math.min(cfg.v1, cfg.v2) && pre <= Math.max(cfg.v1, cfg.v2))) continue;
-    if (!viradaSituacao(d.placar, x, cfg.sit)) continue;
-    return { x, pre };
-  }
-  return null;
+
+// ---- Modelos prontos ----
+function regrasModelos() {
+  return [
+    { nome: "Zebra com %", regras: [{ on: true, alerta: false, conds: [{ t: "pct", per: "s", op: "acima", v1: 50, v2: null }, { t: "rel", per: "s", rel: "vence", vant: null }, { t: "odd", op: "acima", v1: 3, v2: null }] }] },
+    { nome: "Líder pagando bem", regras: [{ on: true, alerta: false, conds: [{ t: "rel", per: "e", rel: "vence", vant: null }, { t: "odd", op: "acima", v1: 1.8, v2: null }] }] },
+    { nome: "Valor", regras: [{ on: true, alerta: false, conds: [{ t: "valor", base: "min", min: 8 }] }] },
+    { nome: "Virada", regras: [{ on: true, alerta: true, conds: [{ t: "odd", op: "acima", v1: 2, v2: null }, { t: "sit", sit: "p2" }] }] },
+  ];
 }
-let flt=Object.assign({},FDEF,{pisos:[],niv:[],al:filtroAlvoPadrao(),vi:viradaPadrao()},(()=>{try{return JSON.parse(ls.get("flt")||"{}")}catch(e){return{}}})()),fOpen=false;
+if (typeof module !== "undefined") module.exports = { regraNova, condNova, regraAtiva, regrasAtivas, regrasAvalia, regrasPassam, viradaSituacao, viradaPerdeSet, regrasModelos };
+
+// UI das regras de filtro (compartilhada: extensão e mobile). est = { regras:[], salvos:[] }.
+function regrasUI(box, est, opt) {
+  opt = opt || {};
+  let salvando = false;
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  if (!Array.isArray(est.salvos)) est.salvos = regrasModelos();
+  if (!Array.isArray(est.regras)) est.regras = [];
+  const sel = (p, val, ops) => `<select class="rg-s" data-p="${p}">${ops.map(([v, t]) => `<option value="${v}"${String(val) === v ? " selected" : ""}>${t}</option>`).join("")}</select>`;
+  const num = (p, val, ph) => `<input class="rg-n" type="number" step="any" inputmode="decimal" data-p="${p}" value="${val == null ? "" : esc(val)}" placeholder="${ph || ""}">`;
+  const OP = [["acima", "acima de"], ["abaixo", "abaixo de"], ["entre", "entre"]];
+  const PER = [["s", "52 sem."], ["c", "carreira"], ["ou", "52 sem. OU carreira"], ["e", "52 sem. E carreira"]];
+  const TIPOS = [["pct", "% de vitória"], ["rel", "vence/perde o adversário"], ["odd", "odd pré-jogo"], ["valor", "valor (odd × %)"], ["sit", "situação ao vivo"]];
+  const condHtml = (c, ri, ci) => {
+    const P = `${ri}.${ci}.`;
+    let corpo = "";
+    if (c.t === "pct") corpo = `${sel(P + "op", c.op, OP)} ${num(P + "v1", c.v1, "50")}${c.op === "entre" ? ` e ${num(P + "v2", c.v2, "60")}` : ""} <span class="rg-t">no</span> ${sel(P + "per", c.per, PER)}`;
+    else if (c.t === "rel") corpo = `${sel(P + "rel", c.rel, [["vence", "vence"], ["perde", "perde"]])} <span class="rg-t">o adversário em</span> ${sel(P + "per", c.per, PER)} <span class="rg-t">por ≥</span> ${num(P + "vant", c.vant, "0")} <span class="rg-t">pp</span>`;
+    else if (c.t === "odd") corpo = `<span class="rg-t">paga</span> ${sel(P + "op", c.op, OP)} ${num(P + "v1", c.v1, "2.00")}${c.op === "entre" ? ` e ${num(P + "v2", c.v2, "3.00")}` : ""}`;
+    else if (c.t === "valor") corpo = `<span class="rg-t">≥ +</span>${num(P + "min", c.min, "8")} <span class="rg-t">pp, % de</span> ${sel(P + "base", c.base, [["s", "52 sem."], ["c", "carreira"], ["min", "a menor das duas"]])}`;
+    else corpo = `<span class="rg-t">está</span> ${sel(P + "sit", c.sit, [["p1", "perdeu o 1º set"], ["p2", "perdendo o 2º set"], ["sets", "atrás em sets"]])}`;
+    return `<div class="rg-c">${sel(P + "t", c.t, TIPOS)}${corpo}<button class="rg-x" type="button" data-del="${ri}.${ci}" title="Remover condição">×</button></div>`;
+  };
+  const render = () => {
+    let h = "";
+    est.regras.forEach((r, ri) => {
+      h += `<div class="rg-r${r.on ? "" : " rg-off"}"><div class="rg-h"><b>Regra ${ri + 1}</b><span class="rg-sub">jogador que…</span>
+        <button type="button" class="rg-sw${r.on ? " on" : ""}" data-sw="${ri}.on" title="Ligar/desligar a regra"></button>
+        ${opt.alerta ? `<button type="button" class="rg-al${r.alerta ? " on" : ""}" data-sw="${ri}.alerta" title="Avisar no celular/Chrome quando um jogo AO VIVO cumprir esta regra (1 aviso por jogo)">🔔 avisar</button>` : ""}
+        <button class="rg-x" type="button" data-delr="${ri}" title="Excluir regra">×</button></div>
+        ${r.conds.length ? r.conds.map((c, ci) => condHtml(c, ri, ci)).join("") : `<div class="rg-v">Sem condições — adicione uma.</div>`}
+        <select class="rg-add" data-add="${ri}"><option value="">+ condição ▾</option>${TIPOS.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select></div>`;
+    });
+    h += `<div class="rg-f"><button type="button" class="rg-lk" data-nova="1">+ Nova regra${est.regras.length ? " (OU)" : ""}</button>${est.regras.length ? `<button type="button" class="rg-lk" data-limpar="1">Limpar</button>` : ""}</div>`;
+    h += `<div class="rg-sv"><span class="rg-t">Salvos:</span> ${est.salvos.map((s, i) => `<span class="rg-chip"><button type="button" data-ap="${i}">${esc(s.nome)}</button><button type="button" class="rg-cx" data-ds="${i}" title="Apagar">×</button></span>`).join("")}
+      ${salvando ? `<input class="rg-nome" type="text" placeholder="Nome" maxlength="24"><button type="button" class="rg-lk" data-ok="1">OK</button>` : est.regras.length ? `<button type="button" class="rg-lk" data-salvar="1">+ Salvar</button>` : ""}</div>`;
+    box.innerHTML = h;
+  };
+  const mudou = () => { if (opt.onChange) opt.onChange(est); };
+  box.addEventListener("change", (e) => {
+    const el = e.target;
+    if (el.dataset.p) {
+      const [ri, ci, campo] = el.dataset.p.split(".");
+      const c = est.regras[+ri].conds[+ci];
+      if (campo === "t") est.regras[+ri].conds[+ci] = condNova(el.value);
+      else if (el.tagName === "INPUT") { const v = parseFloat(String(el.value).replace(",", ".")); c[campo] = Number.isFinite(v) ? v : null; }
+      else c[campo] = el.value;
+      mudou(); render();
+    } else if (el.dataset.add !== undefined && el.value) {
+      est.regras[+el.dataset.add].conds.push(condNova(el.value));
+      mudou(); render();
+    }
+  });
+  box.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    const d = b.dataset;
+    if (d.sw) { const [ri, k] = d.sw.split("."); est.regras[+ri][k] = !est.regras[+ri][k]; }
+    else if (d.del) { const [ri, ci] = d.del.split("."); est.regras[+ri].conds.splice(+ci, 1); }
+    else if (d.delr) est.regras.splice(+d.delr, 1);
+    else if (d.nova) est.regras.push(regraNova());
+    else if (d.limpar) est.regras.length = 0;
+    else if (d.ap) { est.regras.length = 0; clone(est.salvos[+d.ap].regras).forEach((r) => est.regras.push(r)); }
+    else if (d.ds) est.salvos.splice(+d.ds, 1);
+    else if (d.salvar) { salvando = true; render(); const i = box.querySelector(".rg-nome"); if (i) i.focus(); return; }
+    else if (d.ok) {
+      const i = box.querySelector(".rg-nome"); const nome = i && i.value.trim();
+      if (nome) { est.salvos = est.salvos.filter((s) => s.nome !== nome); est.salvos.push({ nome, regras: clone(est.regras) }); }
+      salvando = false;
+    } else return;
+    mudou(); render();
+  });
+  render();
+  return { render };
+}
+
+let flt=Object.assign({},FDEF,{pisos:[],niv:[],rg:{regras:[],salvos:undefined}},(()=>{try{return JSON.parse(ls.get("flt")||"{}")}catch(e){return{}}})()),fOpen=false;
 let abertos=new Set((()=>{try{return JSON.parse(ls.get("abertos")||"[]")}catch(e){return[]}})());
 const svFlt=()=>ls.set("flt",JSON.stringify(flt)),svAb=()=>ls.set("abertos",JSON.stringify([...abertos]));
 const pisoK=(p)=>/grass|grama|relva/i.test(p||"")?"grass":/clay|saibro|barro/i.test(p||"")?"clay":p?"hard":"";
 const nivelK=(t)=>/qual/i.test(t||"")?"Qualies":/challenger/i.test(t||"")?"Challenger":"Principal";
-function nFlt(){return ["ap","odds","risco","amo"].filter(k=>flt[k]).length+filtroAlvoAtivos(flt.al)+(flt.vi.on?1:0)+(flt.pisos.length?1:0)+(flt.niv.length?1:0)}
-function viTag(g){if(!flt.vi.on||!g.od0)return"";const v=viradaAvalia(flt.vi,{pre:{A:parseFloat(g.od0[0]),B:parseFloat(g.od0[1])},fav:g.fav,placar:{etapa:g.et||"",sacaA:g.sv==="a"?true:g.sv==="b"?false:null,sets:(g.sets||[]).map(s=>({a:s[0],b:s[1]}))}});return v?`<span class="chip" style="background:#fef3c7;color:#92400e">↩ pagava ${v.pre.toFixed(2)}</span>`:""}
+function nFlt(){return ["ap","odds","risco","amo"].filter(k=>flt[k]).length+regrasAtivas(flt.rg.regras)+(flt.pisos.length?1:0)+(flt.niv.length?1:0)}
+function regD(g){const k=pisoK(g.piso),r=g.rt,pr=(L,t)=>r&&k&&r[L][t][k]?r[L][t][k]:null,o=g.od0||g.od,pv=(i)=>o?parseFloat(o[i]):null;
+  return {s:{A:pr("A","s"),B:pr("B","s")},c:{A:pr("A","c"),B:pr("B","c")},pre:{A:pv(0),B:pv(1)},placar:g.sets&&g.sets.length?{etapa:g.et||"",sacaA:g.sv==="a"?true:g.sv==="b"?false:null,sets:g.sets.map(s=>({a:s[0],b:s[1]}))}:null}}
+function viTag(g){if(!regrasAtivas(flt.rg.regras)||!g.sets||!g.sets.length)return"";const d=regD(g),v=regrasAvalia(flt.rg.regras,d);if(!v||!v.x||!flt.rg.regras[v.regra].conds.some(c=>c.t==="sit"))return"";const p=d.pre[v.x];return p?`<span class="chip" style="background:#fef3c7;color:#92400e">↩ pagava ${p.toFixed(2)}</span>`:""}
 function passa(g){
   const f=flt;
   if(f.ap&&!(g.ap||[]).length)return false;
@@ -409,30 +515,20 @@ function passa(g){
   if(f.risco&&!emRisco(g))return false;
   if(f.pisos.length&&!f.pisos.includes(pisoK(g.piso)))return false;
   if(f.niv.length&&!f.niv.includes(nivelK(g.tor)))return false;
-  if(f.vi.on){const pl={etapa:g.et||"",sacaA:g.sv==="a"?true:g.sv==="b"?false:null,sets:(g.sets||[]).map(s=>({a:s[0],b:s[1]}))};
-   if(!g.od0||!viradaAvalia(f.vi,{pre:{A:parseFloat(g.od0[0]),B:parseFloat(g.od0[1])},fav:g.fav,placar:pl}))return false}
-  {const k=pisoK(g.piso),r=g.rt,pr=(L,t)=>r&&k&&r[L][t][k]?r[L][t][k]:null;
-   if(!filtroAlvoPassa(f.al,{s:{A:pr("A","s"),B:pr("B","s")},c:{A:pr("A","c"),B:pr("B","c")},odd:{A:g.od?parseFloat(g.od[0]):null,B:g.od?parseFloat(g.od[1]):null},fav:g.fav}))return false}
+  if(regrasAtivas(f.rg.regras)&&!regrasPassam(f.rg.regras,regD(g)))return false;
   if(f.amo&&g.rt&&(g.rt.A.lw||g.rt.B.lw))return false;
   return true}
 function filtrosHtml(){
   const cp=(k,v,t)=>`<button class="cp ${(flt[k]||[]).includes(v)?"on":""}" data-fa="${k}" data-v="${v}">${t}</button>`;
   const sw=(k,t)=>`<button class="cp ${flt[k]?"on":""}" data-fk="${k}">${t}</button>`;
-  const fa=(p,t)=>{const[x,v]=p.split("="),[bl,c]=x.split(".");const on=v===undefined?flt.al[bl][c]:flt.al[bl][c]===v;return `<button class="cp ${on?"on":""}" data-fa="${p}">${t}</button>`};
-  const fv=(p,t)=>{const[k,v]=p.split("=");const on=v===undefined?flt.vi[k]:flt.vi[k]===v;return `<button class="cp ${on?"on":""}" data-fv="${p}">${t}</button>`};
   const n=nFlt();
   return `<div class="fb"><button class="h" id="fh"><span>🔎 Filtros${n?" ("+n+")":""}</span><span>${fOpen?"▴":"▾"}</span></button>`+(fOpen?`<div class="gp">
   <small>Jogo</small>${sw("ap","Só com aposta")}${sw("odds","Só com odds")}${sw("risco","⚠ Em risco")}
-  <small>Jogador</small>${sw("amo","Sem amostra pequena")}
-  <small>Alvo (maior % no piso)</small>${fa("alvo.on","Ligar")}${fa("alvo.base=52","52 sem.")}${fa("alvo.base=car","Carreira")}${fa("alvo.base=ou","52 OU carr.")}${fa("alvo.base=e","52 E carr.")}
-  <small>Odd do alvo</small>${fa("odd.on","Ligar")}${fa("odd.op=acima","acima de")}${fa("odd.op=entre","entre")}${fa("odd.op=abaixo","abaixo de")} <input type="number" data-fn="odd.v1" step="0.01" inputmode="decimal" value="${flt.al.odd.v1??""}" placeholder="1.80">${flt.al.odd.op==="entre"?` e <input type="number" data-fn="odd.v2" step="0.01" inputmode="decimal" value="${flt.al.odd.v2??""}" placeholder="2.20">`:""}
-  <small>Valor (% − 100÷odd)</small>${fa("valor.on","Ligar")}${fa("valor.base=s","52 sem.")}${fa("valor.base=c","Carreira")}${fa("valor.base=min","A menor")} ≥ + <input type="number" data-fn="valor.min" step="1" inputmode="decimal" value="${flt.al.valor.min??""}" placeholder="8"> pp
-  <small>Virada (pagava X e está perdendo)</small>${fv("on","Ligar")}<br>Pré-jogo ${fv("op=acima","acima de")}${fv("op=entre","entre")} <input type="number" data-fvn="v1" step="0.01" inputmode="decimal" value="${flt.vi.v1??""}" placeholder="1.80">${flt.vi.op==="entre"?` e <input type="number" data-fvn="v2" step="0.01" inputmode="decimal" value="${flt.vi.v2??""}" placeholder="2.20">`:""}<br>Agora ${fv("sit=p1","Perdeu 1º set")}${fv("sit=p2","Perdendo 2º set")}${fv("sit=sets","Atrás em sets")}
-  <details style="margin-top:6px"><summary style="color:var(--ac);font-size:12px">Avançado do alvo</summary>
-  % do líder ≥ <input type="number" data-fn="alvo.pctMin" inputmode="decimal" value="${flt.al.alvo.pctMin??""}" placeholder="60"> vantagem ≥ <input type="number" data-fn="alvo.vantMin" inputmode="decimal" value="${flt.al.alvo.vantMin??""}" placeholder="10"> jogos ≥ <input type="number" data-fn="alvo.jogosMin" inputmode="decimal" value="${flt.al.alvo.jogosMin??""}" placeholder="8"></details>
+  <div id="rgbox" class="rg-box"></div>
+  <details class="fmais"><summary>Mais filtros</summary><small>Jogador</small>${sw("amo","Sem amostra pequena")}
   <small>Piso</small>${cp("pisos","clay","Saibro")}${cp("pisos","hard","Dura")}${cp("pisos","grass","Grama")}
   <small>Nível</small>${cp("niv","Principal","Principal")}${cp("niv","Challenger","Challenger")}${cp("niv","Qualies","Qualies")}
-  <br><button class="lk" id="fclr">Limpar filtros</button></div>`:"")+`</div>`}
+  <br><button class="lk" id="fclr">Limpar filtros</button></details></div>`:"")+`</div>`}
 function retHtml(g){
   const r=g.rt;if(!r)return"";const pk=pisoK(g.piso);
   const tb=(t,tipo)=>`<b>${t}</b><table><tr><th></th><th>Saibro</th><th>Dura</th><th>Grama</th></tr>`+[["A",g.a],["B",g.b]].map(([L,nm])=>`<tr><td>${esc(nc(nm))}</td>`+["clay","hard","grass"].map(k=>{const v=r[L][tipo][k];return `<td class="${k===pk?"hl":""}">${v?Math.round(v[0])+"%<small>"+v[1]+" j</small>":"—"}</td>`}).join("")+`</tr>`).join("")+`</table>`;
@@ -470,7 +566,7 @@ function mover(d){
   render();
 }
 let cfgOn=false;
-function render(){if(cfgOn)return;modo==="live"?renderLive():renderContas()}
+function render(){if(cfgOn)return;const ae=document.activeElement;if(ae&&ae.closest&&ae.closest("#rgbox")&&ae.matches("input"))return;modo==="live"?renderLive():renderContas()}
 function renderContas(){
   const app=$("#app");
   $("#st").textContent=erro?("falha: "+erro):lidoEm?("lido às "+new Date(lidoEm).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})):"—";
@@ -575,12 +671,8 @@ function renderLive(){
   q("#fh").onclick=()=>{fOpen=!fOpen;render()};
   app.querySelectorAll("[data-fk]").forEach(b=>b.onclick=()=>{flt[b.dataset.fk]=flt[b.dataset.fk]?0:1;svFlt();render()});
   app.querySelectorAll("[data-fa]").forEach(b=>b.onclick=()=>{const a=flt[b.dataset.fa],v=b.dataset.v,i=a.indexOf(v);i<0?a.push(v):a.splice(i,1);svFlt();render()});
-  app.querySelectorAll("[data-fa]").forEach(b=>b.onclick=()=>{const[x,v]=b.dataset.fa.split("="),[bl,c]=x.split(".");
-    if(v===undefined)flt.al[bl][c]=!flt.al[bl][c];else{flt.al[bl][c]=(c==="so"&&flt.al[bl][c]===v)?"qualquer":v;flt.al[bl].on=true}svFlt();render()});
-  app.querySelectorAll("[data-fv]").forEach(b=>b.onclick=()=>{const[k,v]=b.dataset.fv.split("=");if(v===undefined)flt.vi[k]=!flt.vi[k];else{flt.vi[k]=v;flt.vi.on=true}svFlt();render()});
-  app.querySelectorAll("[data-fvn]").forEach(i=>i.onchange=()=>{const v=parseFloat(String(i.value).replace(",","."));flt.vi[i.dataset.fvn]=Number.isFinite(v)?v:null;svFlt();render()});
-  app.querySelectorAll("[data-fn]").forEach(i=>i.onchange=()=>{const[bl,c]=i.dataset.fn.split("."),v=parseFloat(String(i.value).replace(",","."));flt.al[bl][c]=Number.isFinite(v)?v:null;svFlt();render()});
-  const fc=q("#fclr");if(fc)fc.onclick=()=>{flt=Object.assign({},FDEF,{pisos:[],niv:[],al:filtroAlvoPadrao(),vi:viradaPadrao()});svFlt();render()};
+  const rb=q("#rgbox");if(rb)regrasUI(rb,flt.rg,{onChange:()=>{svFlt();render()}});
+  const fc=q("#fclr");if(fc)fc.onclick=()=>{flt=Object.assign({},FDEF,{pisos:[],niv:[],rg:{regras:[],salvos:flt.rg.salvos}});svFlt();render()};
   app.querySelectorAll("[data-cv]").forEach(b=>b.onclick=()=>{const k=b.dataset.cv;abertos.has(k)?abertos.delete(k):abertos.add(k);svAb();render()});
   const tg=q("#tga");if(tg)tg.onclick=()=>{const L=live.filter(passa).filter(g=>g.rt);L.every(g=>abertos.has(g.k))?L.forEach(g=>abertos.delete(g.k)):L.forEach(g=>abertos.add(g.k));svAb();render()};
 }
