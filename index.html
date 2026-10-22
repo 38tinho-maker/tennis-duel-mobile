@@ -36,7 +36,7 @@ button,input{font:inherit;color:inherit}
 .sb{background:#0f172a;color:#fff;padding:8px 12px}.sbh{display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-bottom:4px}.sbh .lv{color:#f87171;font-weight:700}
 .sr{display:flex;align-items:center;gap:6px;padding:2px 0}.sr .sv{width:8px;height:8px;border-radius:50%;flex:none}.sr .sv.on{background:#facc15}.sr .nm{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sr .st{width:22px;text-align:center;color:#94a3b8}.sr .st.w{color:#fff;font-weight:700}.sr .st.cur{color:#fff;font-weight:700}.sr .pt{width:34px;text-align:center;background:#334155;border-radius:4px;font-weight:700}.sr .od{width:40px;text-align:right;color:#fbbf24}
-.ga{padding:8px 12px;border-top:1px solid var(--bd);font-size:13px;display:flex;justify-content:space-between;gap:8px}.ga small{display:block;color:var(--mut);font-size:11px}
+.ga{padding:8px 12px;border-top:1px solid var(--bd);font-size:13px}.ab{line-height:1.45}.a1{font-weight:600}.a1 span{font-weight:400;color:var(--mut)}.a2{font-size:17px;font-weight:700}.a3{font-size:11px;color:var(--mut)}.ok{font-size:11px;font-weight:600;color:var(--g)}.per{display:flex;gap:6px;padding:4px 14px}.per button{flex:1;padding:6px 0;border:1px solid var(--bd);border-radius:14px;background:var(--card);color:var(--mut);font-size:13px;font-weight:600}.per .on{background:#7c3aed;border-color:#7c3aed;color:#fff}.a2.wo{color:#92400e}.wos{font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;background:#fef3c7;color:#92400e;vertical-align:middle}.ac{display:flex;gap:6px;margin-top:4px}.ac span{flex:1;text-align:center;border-radius:8px;padding:5px 0;font-size:12px;font-weight:600}.cg{background:#dcf5e5;color:#16803c}.cr{background:#fde4e1;color:#b42318}.ga small{display:block;color:var(--mut);font-size:11px}
 .chip{display:inline-block;font-size:10px;border-radius:8px;padding:1px 7px;margin-left:4px;background:#fee4e2;color:#b42318}
 .fb{margin:0 14px 10px;background:var(--card);border:1px solid var(--bd);border-radius:12px;overflow:hidden}
 .fb>button.h{width:100%;display:flex;justify-content:space-between;padding:9px 12px;border:0;background:none;font-weight:600}
@@ -79,7 +79,7 @@ button,input{font:inherit;color:inherit}
 .filtros-mais > summary { font-size: 12px; color: var(--text-secondary); cursor: pointer; margin: 4px 0; }
 .fmais>summary{font-size:12px;color:var(--ac);margin:6px 0}
 </style></head><body>
-<header><div><b>🎾 Tennis Duel</b> <small>v1.7</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
+<header><div><b>🎾 Tennis Duel</b> <small>v1.10</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
 <div class="mt"><button id="m-live" class="on">Ao vivo</button><button id="m-ct">💰 Contas</button></div>
 <div id="app"></div>
 <script>
@@ -129,7 +129,7 @@ function apostasConstruir(activity, positions, closedCids, agoraSeg) {
   const fechados = new Set(closedCids || []);
   const mapa = new Map();
   const pega = (cid) => {
-    if (!mapa.has(cid)) mapa.set(cid, { cid, stake: 0, shares: 0, ret: 0, ts: null, compras: {}, title: "", slug: "", eventSlug: "" });
+    if (!mapa.has(cid)) mapa.set(cid, { cid, stake: 0, shares: 0, ret: 0, ts: null, compras: {}, vendeu: false, title: "", slug: "", eventSlug: "" });
     return mapa.get(cid);
   };
   (activity || []).forEach((a) => {
@@ -151,6 +151,7 @@ function apostasConstruir(activity, positions, closedCids, agoraSeg) {
       b.compras[o] = (b.compras[o] || 0) + usd;
     } else if ((tipo === "TRADE" && lado === "SELL") || tipo === "REDEEM") {
       b.ret += usd;
+      if (tipo === "TRADE") b.vendeu = true;
     }
   });
   const posPorCid = new Map();
@@ -192,6 +193,8 @@ function apostasConstruir(activity, positions, closedCids, agoraSeg) {
     const pnl = retEfetivo - b.stake;
     let resultado = status;
     if (status === "encerrada") resultado = pnl > 0.005 ? "ganhou" : pnl < -0.005 ? "perdeu" : "neutra";
+    // WO / anulado: mercado devolvido 50/50 (≈ $0,50 por cota) sem nenhuma venda sua
+    if (status === "encerrada" && !b.vendeu && b.shares > 0 && retEfetivo / b.shares >= 0.45 && retEfetivo / b.shares <= 0.55) resultado = "wo";
     const outcome = Object.keys(b.compras).sort((x, y) => b.compras[y] - b.compras[x])[0] || (lista[0] && lista[0].outcome) || "";
     const avg = b.shares > 0 ? b.stake / b.shares : 0;
     bets.push({
@@ -206,7 +209,7 @@ function apostasConstruir(activity, positions, closedCids, agoraSeg) {
       pct: b.stake > 0 ? (pnl / b.stake) * 100 : 0,
       retorno: retEfetivo,
       semPosicao,
-      resultado, // aberta | ganhou | perdeu | neutra
+      resultado, // aberta | ganhou | perdeu | neutra | wo (anulado 50/50)
       ts: b.ts, // segundos (1ª compra) ou null
       tenis: apEhTenis(b.slug, b.eventSlug),
     });
@@ -284,9 +287,10 @@ function apTotais(lista) {
   const apostado = lista.reduce((s, b) => s + b.stake, 0);
   const retorno = lista.reduce((s, b) => s + b.retorno, 0);
   const lucro = retorno - apostado;
-  const fechadas = lista.filter((b) => b.resultado !== "aberta");
+  const encerradas = lista.filter((b) => b.resultado !== "aberta");
+  const fechadas = encerradas.filter((b) => b.resultado !== "wo"); // WO (anulada) não conta como acerto nem erro
   const ganhas = fechadas.filter((b) => b.resultado === "ganhou").length;
-  const abertas = lista.length - fechadas.length;
+  const abertas = lista.length - encerradas.length;
   const odds = lista.filter((b) => b.avgPrice > 0).map((b) => 1 / b.avgPrice);
   return {
     n: lista.length,
@@ -581,15 +585,15 @@ function renderContas(){
   const hojeP=atual.ini.getTime()===per.ini.getTime();
   if(abertas.length&&hojeP){const ap=abertas.reduce((s,b)=>s+b.stake,0),pn=abertas.reduce((s,b)=>s+b.pnl,0);
     h+=`<button class="top" id="ab"><span>● ${abertas.length} aberta${abertas.length>1?"s":""} · ${din(ap)}</span><span class="${cls(pn)}">${din(pn,1)} ${aberta?"▴":"▾"}</span></button>`;
-    if(aberta)h+=abertas.map(b=>`<div class="item"><div class="l1"><span>${esc(b.title)}</span><span class="${cls(b.pnl)}">${din(b.pnl,1)}</span></div><div class="l2">${esc(curto(b.outcome))} · a ${(b.avgPrice).toFixed(2).replace(".",",")} · ${Number(b.cotas).toLocaleString("pt-BR",{maximumFractionDigits:2})} cotas</div></div>`).join("")}
+    if(aberta)h+=abertas.map(b=>`<div class="item"><div class="l1"><span>${esc(b.title)}</span></div>${apBloco(bX(b))}</div>`).join("")}
   if(erro)h+=`<div class="aviso">Última leitura falhou: ${esc(erro)}</div>`;
   h+=`<div class="kp"><div>Apostado<b>${din(t.apostado)}</b></div><div>Retorno<b>${din(t.retorno)}</b></div><div>Lucro<b class="${cls(t.lucro)}">${din(t.lucro,1)}</b></div><div>ROI<b class="${cls(t.roi)}">${t.roi>=0?"+":"−"}${Math.abs(t.roi).toFixed(0)}%</b></div><div>Acertos<b>${t.fechadas?`${t.ganhas} de ${t.fechadas}`:"—"}</b></div><div>${tipo==="dia"?"Abertas":"Odd média"}<b>${tipo==="dia"?t.abertas:t.oddMedia?t.oddMedia.toFixed(2).replace(".",","):"—"}</b></div></div>`;
   const lst=(tipo==="dia"&&hojeP&&abertas.length)?per.bets.filter(b=>b.resultado!=="aberta"):per.bets;
   if(!per.bets.length)h+=`<div class="vazio">Nenhuma aposta de tênis neste período.</div>`;
   else if(tipo==="dia"){
-    h+=lst.map(b=>{const pill=b.resultado==="ganhou"?'<span class="pill w">ganhou</span>':b.resultado==="perdeu"?'<span class="pill l">perdeu</span>':b.resultado==="aberta"?'<span class="pill o">aberta</span>':'<span class="pill">encerrada</span>';
+    h+=lst.map(b=>{const pill=b.resultado==="wo"?'<span class="pill o">WO · 50/50</span>':b.resultado==="ganhou"?'<span class="pill w">ganhou</span>':b.resultado==="perdeu"?'<span class="pill l">perdeu</span>':b.resultado==="aberta"?'<span class="pill o">aberta</span>':'<span class="pill">encerrada</span>';
       const hr=new Date(b.ts*1000).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
-      return `<div class="item"><div class="l1"><span>${esc(b.title)}</span><span class="${cls(b.pnl)}">${din(b.pnl,1)}</span></div><div class="l2">${esc(curto(b.outcome))} · ${din(b.stake)} a ${(b.avgPrice).toFixed(2).replace(".",",")} · ${Number(b.cotas).toLocaleString("pt-BR",{maximumFractionDigits:2})} cotas · ${pill} · ${hr}</div></div>`}).join("");
+      return `<div class="item"><div class="l1"><span>${esc(b.title)}</span></div>${apBloco(bX(b))}<div class="l2">${pill} · ${hr}</div></div>`}).join("");
   }else{
     const g=new Map();per.bets.forEach(b=>{const k=apChaveDia(new Date(b.ts*1000));if(!g.has(k))g.set(k,[]);g.get(k).push(b)});
     const n=Math.round((per.fim-per.ini)/864e5),dias=[];
@@ -613,19 +617,22 @@ function sbRows(g,fim){
   const row=(i)=>{const nome=i?g.b:g.a;let venc=false;if(fim){let sa=0,sb=0;g.sets.forEach(s=>{if(s[0]>s[1])sa++;else if(s[1]>s[0])sb++});venc=i?sb>sa:sa>sb}
     const cells=g.sets.map((s,k)=>{const m=s[i],o=s[1-i];return `<span class="st ${k===cur?"cur":m>o?"w":""}">${m}</span>`}).join("");
     const pt=!fim&&g.pt?g.pt[i]:"",sv=g.sv===(i?"b":"a");
-    return `<div class="sr"><span class="sv ${sv&&!fim?"on":""}"></span><span class="nm" style="${venc?"color:#fff;font-weight:800":""}">${esc(nc(nome))}</span>${cells}${fim?`<span class="od" title="odd pré-jogo">${g.od0?Number(g.od0[i]).toFixed(2):""}</span>`:`<span class="pt">${pt==null?"":esc(pt)}</span><span class="od">${g.od?esc(g.od[i]):""}</span>`}</div>`};
+    return `<div class="sr"><span class="sv ${sv&&!fim?"on":""}"></span><span class="nm" style="${venc?"color:#fff;font-weight:800":""}">${venc?"🏆 ":""}${esc(nc(nome))}</span>${cells||'<span class="st">—</span>'}${fim?`<span class="od" title="odd pré-jogo">${g.od0?Number(g.od0[i]).toFixed(2):""}</span>`:`<span class="pt">${pt==null?"":esc(pt)}</span><span class="od">${g.od?esc(g.od[i]):""}</span>`}</div>`};
   return row(0)+row(1);
 }
-function apHtml(g){
-  return (g.ap||[]).map(a=>{const nome=a.l==="A"?g.a:a.l==="B"?g.b:a.o;const neg=a.p<0;
-    const risco=!neg?"":"";
-    return `<div class="ga"><span>💰 ${esc(nc(nome))}<small>${Number(a.c).toLocaleString("pt-BR",{maximumFractionDigits:2})} cotas · apostado ${din(a.s)}${a.st==="ganhou"?" · ganhou":a.st==="perdeu"?" · perdeu":""}</small></span><b class="${cls(a.p)}">${din(a.p,1)} (${a.pc>=0?"+":"−"}${Math.abs(a.pc).toFixed(0)}%)</b></div>`}).join("");
-}
+const bX=(b)=>({nome:curto(b.outcome),preco:b.avgPrice,cotas:b.cotas,stake:b.stake,pnl:b.pnl,pct:b.pct||0,res:b.resultado,ret:b.retorno});
+const f2=(n)=>Number(n).toFixed(2).replace(".",","),fc=(n)=>Number(n).toLocaleString("pt-BR",{maximumFractionDigits:2});
+// Bloco padrão de aposta (3 linhas). x={nome,preco,cotas,stake,pnl,pct,res("aberta"|"ganhou"|"perdeu"),ret}
+function apBloco(x){
+  const l1=`<div class="a1">💰 ${esc(x.nome)} <span>· a ${f2(x.preco)} · ${fc(x.cotas)} cotas</span></div>`;
+  if(x.res==="wo")return `<div class="ab">${l1}<div class="a2 wo">${din(x.pnl,1)} <span class="wos">WO · 50/50</span></div><div class="a3">apostado ${din(x.stake)} → recebeu ${din(x.ret||0)}</div></div>`;
+  if(x.res==="ganhou"||x.res==="perdeu")return `<div class="ab">${l1}<div class="a2 ${cls(x.pnl)}">${din(x.pnl,1)} ${x.res}</div><div class="a3">apostado ${din(x.stake)} → recebeu ${din(x.ret||0)}</div></div>`;
+  return `<div class="ab">${l1}<div class="a2 ${cls(x.pnl)}">${din(x.pnl,1)} (${x.pct>=0?"+":"−"}${Math.abs(x.pct).toFixed(0)}%)</div>${x.cotas>0?`<div class="ac"><span class="cg">✓ ganha ${din(x.cotas-x.stake,1)}</span><span class="cr">✗ perde ${din(-x.stake)}</span></div>`:""}</div>`}
+const apX=(g,a)=>({nome:nc(a.l==="A"?g.a:a.l==="B"?g.b:a.o),preco:a.c>0?a.s/a.c:0,cotas:a.c,stake:a.s,pnl:a.p,pct:a.pc,res:a.st==="ganhou"||a.st==="perdeu"||a.st==="wo"?a.st:"aberta",ret:a.r});
+function apHtml(g){return (g.ap||[]).map(a=>`<div class="ga">${apBloco(apX(g,a))}</div>`).join("")}
 const money=(v)=>din(v);
-function apEncHtml(g){
-  return (g.ap||[]).map(a=>{const nome=a.l==="A"?g.a:a.l==="B"?g.b:a.o;const pr=a.c>0?a.s/a.c:null;
-    return `<div class="ga"><span>💰 ${esc(nc(nome))}${pr?` · a ${pr.toFixed(2).replace(".",",")}`:""} · ${Number(a.c).toLocaleString("pt-BR",{maximumFractionDigits:2})} cotas<small>apostado ${money(a.s)} → recebeu ${money(a.r||0)}</small></span><b class="${cls(a.p)}">${din(a.p,1)}${a.st==="ganhou"?" ganhou":a.st==="perdeu"?" perdeu":""}</b></div>`}).join("");
-}
+function vencEnc(g){let sa=0,sb=0;g.sets.forEach(s=>{if(s[0]>s[1])sa++;else if(s[1]>s[0])sb++});return sa>sb?"A":sb>sa?"B":null}
+function apEncHtml(g){const v=vencEnc(g);return (g.ap||[]).map(a=>`<div class="ga">${apBloco(apX(g,a))}${v&&a.l===v?'<div class="ok">✓ apostou no vencedor</div>':""}</div>`).join("")}
 function duracao(ms){if(!(ms>60000))return"";const m=Math.round(ms/60000);return m>=60?Math.floor(m/60)+"h"+String(m%60).padStart(2,"0"):m+" min"}
 function exEncHtml(g){
   const hh=(ts)=>new Date(ts).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
@@ -640,6 +647,9 @@ function emRisco(g){ // aposta no jogador que está atrás em sets
   return g.ap.some(a=>a.st==="aberta"&&((a.l==="A"&&sb>sa)||(a.l==="B"&&sa>sb)));
 }
 function horaFim(ms){if(!ms)return"";const d=new Date(ms),h=d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});return d.toDateString()===new Date().toDateString()?h:"ontem "+h}
+let encPer=ls.get("enc_per")||"ambos";
+function noPer(g){const d0=new Date();d0.setHours(0,0,0,0);const h=d0.getTime()/1000,o=h-86400;
+  return (g.ap||[]).some(a=>{const t=a.ts||0;if(!t)return encPer==="ambos";return encPer==="hoje"?t>=h:encPer==="ontem"?(t>=o&&t<h):t>=o})}
 function renderLive(){
   const app=$("#app");
   if(!gistId||!gtoken){app.innerHTML=`<div class="cfg"><b>Ao vivo</b><p>No PC, em ⚙️ → Celular, conecte o token do GitHub e copie o <b>ID do gist</b>. Cole aqui o ID e o mesmo token (só permissão de gist; fica só neste aparelho).</p><input id="gi" placeholder="ID do gist" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(gistId)}"><input id="gt" type="password" placeholder="Token do GitHub" value="${esc(gtoken)}"><button class="p" id="gok">Salvar</button></div>`;
@@ -658,12 +668,12 @@ function renderLive(){
       return `<div class="gc"><div class="gh"><span>${esc(g.tor||"")}${g.piso?" · "+esc(g.piso):""}${emRisco(g)?'<span class="chip">⚠ em risco</span>':""}${viTag(g)}</span></div>
       <div class="sb"><div class="sbh"><span><span class="lv">● AO VIVO</span> · ${esc(g.et||"")}</span><span>sets ${sa}–${sb}</span></div>${g.sets.length?sbRows(g,false):""}</div>${apHtml(g)}${cardBase(g,abertos.has(g.k))}</div>`}).join("");
   }else{
-    const aps=enc.filter(passa).flatMap(g=>g.ap),lucro=aps.reduce((s,a)=>s+a.p,0),ac=aps.filter(a=>a.p>0).length;
-    h+=`<div class="kp"><div>Lucro<b class="${cls(lucro)}">${din(lucro,1)}</b></div><div>Acertos<b>${ac}/${aps.length}</b></div><div>Período<b style="font-size:13px">hoje+ontem</b></div></div>`;
-    const E=enc.filter(passa);if(!E.length)h+=`<div class="vazio">Nenhum jogo encerrado com aposta${enc.length?" nesses filtros":""}.</div>`;
+    const aps=enc.filter(noPer).filter(passa).flatMap(g=>g.ap),lucro=aps.reduce((s,a)=>s+a.p,0),val=aps.filter(a=>a.st!=="wo"),ac=val.filter(a=>a.p>0).length;
+    h+=`<div class="per">${[["ontem","Ontem"],["hoje","Hoje"],["ambos","Ontem + hoje"]].map(([k,t])=>`<button data-per="${k}" class="${encPer===k?"on":""}">${t}</button>`).join("")}</div><div class="kp"><div>Lucro<b class="${cls(lucro)}">${din(lucro,1)}</b></div><div>Acertos<b>${ac}/${val.length}</b></div></div>`;
+    const E=enc.filter(noPer).filter(passa);if(!E.length)h+=`<div class="vazio">Nenhum jogo encerrado com aposta${enc.length?" nesses filtros":""}.</div>`;
     h+=E.map(g=>{let sa=0,sb=0;g.sets.forEach(s=>{if(s[0]>s[1])sa++;else if(s[1]>s[0])sb++});const tot=g.ap.reduce((s,a)=>s+a.p,0);
-      return `<div class="gc"><div class="gh"><span>🏁 ${g.fim?"terminou "+horaFim(g.fim)+" · ":""}${esc(g.tor||"")}</span><b class="${cls(tot)}">${din(tot,1)}</b></div>
-      <div class="sb"><div class="sbh"><span><b>ENCERRADO</b></span><span>sets ${sa}–${sb}</span></div>${g.sets.length?sbRows(g,true):""}</div>${apEncHtml(g)}${abertos.has(g.k)?exEncHtml(g):""}<button class="cv" data-cv="${esc(g.k)}">${abertos.has(g.k)?"▴ recolher":"▾ detalhes"}</button></div>`}).join("");
+      return `<div class="gc"><div class="gh"><span>🏁 ${g.fim?"terminou "+horaFim(g.fim)+" · ":""}${esc(g.tor||"")}</span><b class="${g.ap.every(a=>a.st==="wo")?"":cls(tot)}">${din(tot,1)}</b></div>
+      <div class="sb"><div class="sbh"><span><b>ENCERRADO</b></span><span>${g.sets.length?"sets "+sa+"–"+sb:g.ap.every(a=>a.st==="wo")?"WO · sem placar":"placar indisponível"}</span></div>${sbRows(g,true)}</div>${apEncHtml(g)}${abertos.has(g.k)?exEncHtml(g):""}<button class="cv" data-cv="${esc(g.k)}">${abertos.has(g.k)?"▴ recolher":"▾ detalhes"}</button></div>`}).join("");
   }
   app.innerHTML=h;
   app.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{sub=b.dataset.s;render()});
@@ -673,6 +683,7 @@ function renderLive(){
   app.querySelectorAll("[data-fa]").forEach(b=>b.onclick=()=>{const a=flt[b.dataset.fa],v=b.dataset.v,i=a.indexOf(v);i<0?a.push(v):a.splice(i,1);svFlt();render()});
   const rb=q("#rgbox");if(rb)regrasUI(rb,flt.rg,{onChange:()=>{svFlt();render()}});
   const fc=q("#fclr");if(fc)fc.onclick=()=>{flt=Object.assign({},FDEF,{pisos:[],niv:[],rg:{regras:[],salvos:flt.rg.salvos}});svFlt();render()};
+  app.querySelectorAll("[data-per]").forEach(b=>b.onclick=()=>{encPer=b.dataset.per;ls.set("enc_per",encPer);render()});
   app.querySelectorAll("[data-cv]").forEach(b=>b.onclick=()=>{const k=b.dataset.cv;abertos.has(k)?abertos.delete(k):abertos.add(k);svAb();render()});
   const tg=q("#tga");if(tg)tg.onclick=()=>{const L=live.filter(passa).filter(g=>g.rt);L.every(g=>abertos.has(g.k))?L.forEach(g=>abertos.delete(g.k)):L.forEach(g=>abertos.add(g.k));svAb();render()};
 }
