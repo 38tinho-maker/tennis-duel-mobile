@@ -82,8 +82,14 @@ button,input{font:inherit;color:inherit}
 .rg-nome { width: 90px; font-size: 12px; padding: 3px 5px; border: 0.5px solid var(--border); border-radius: 6px; background: transparent; color: inherit; }
 .filtros-mais > summary { font-size: 12px; color: var(--text-secondary); cursor: pointer; margin: 4px 0; }
 .fmais>summary{font-size:12px;color:var(--ac);margin:6px 0}
+.vgp{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
+.vgp>div{background:var(--c2,#1b1f27);border:1px solid #2c3442;border-radius:999px;padding:1px 8px;font-size:10.5px}
+.vgp i{font-style:normal;opacity:.65;font-size:9.5px;margin-right:3px}
+.vgp b{font-weight:700}
+.vgp .vgb{color:#4ade80}.vgp .vgc{color:#f87171}
+.vgp .vgi{background:#3a2f16;border-color:#5c4a1f;color:#fbbf24}
 </style></head><body>
-<header><div><b>🎾 Tennis Duel</b> <small>v1.15</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
+<header><div><b>🎾 Tennis Duel</b> <small>v1.16</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
 <div class="mt"><button id="m-live" class="on">Ao vivo</button><button id="m-ct">💰 Contas</button></div>
 <div id="app"></div>
 <script>
@@ -701,6 +707,27 @@ function vgPct(v){
   if(!(a>0)||!(f>0))return 0;
   return Math.min(100,Math.max(1,Math.round(100*f/a)));
 }
+// Mesmas pílulas do PC: justo, teto (ou fechamento) e a diferença da ordem.
+// Os números vêm prontos no feed; o celular só mostra.
+function vgPil(v){
+  if(v.j==null)return "";
+  const m3=(n)=>Number(n).toLocaleString("pt-BR",{minimumFractionDigits:3,maximumFractionDigits:3});
+  const pct=(x)=>(x>=0?"+":"−")+Math.abs(x*100).toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%";
+  const pago=v.e==="corresp."?vgPago(v):v.p;
+  const roi=pago>0?v.j/pago-1:null;
+  // com fechamento o número JÁ é o de fechamento: mostrar "justo" junto
+  // seria o mesmo valor duas vezes
+  let h=`<div><i>${v.fc?"fechamento":"justo"}</i><b>${m3(v.j)}</b></div>`;
+  if(!v.fc&&v.t!=null)h+=`<div><i>até</i><b>${m3(v.t)}</b></div>`;
+  if(roi!=null)h+=`<div><i>${v.e==="corresp."?"pagou":"ordem"}</i><b class="${roi>=(v.e==="corresp."?0:0.03)?"vgb":"vgc"}">${pct(roi)}</b></div>`;
+  const idade=Date.now()-(v.je||0);
+  if(!v.fc&&v.je&&idade>30*60000){const mi=Math.round(idade/60000);
+    h+=`<div class="vgi">há ${mi<90?mi+" min":Math.floor(mi/60)+"h"+String(mi%60).padStart(2,"0")}</div>`;}
+  return `<div class="vgp">${h}</div>`;
+}
+function vgPago(v){const m=/a\s+([\d.,]+)\s*$/.exec(String(v.r||""));
+  const p=m?parseFloat(m[1].replace(",",".")):NaN;return p>0&&p<1?p:v.p;}
+
 function vgHtml(vgs){
   if(!vgs.length)return `<div class="vazio">Nenhuma ordem vigiada.<br><small>Crie no PC, no botão 👁 do card.</small></div>`;
   const grupo=(v)=>v.e==="corresp."?2:v.e==="fugiu"?0:1;
@@ -714,7 +741,7 @@ function vgHtml(vgs){
     const extra=v.e==="fugiu"?`melhor compra <b>${fp(v.b)}</b>`:v.e==="corresp."?(v.r?esc(v.r):""):(v.b!=null?`melhor compra ${fp(v.b)} ✓`:"");
     const ate=vgAte(v.i);
     return `<div class="vg"><div class="don" style="--p:${p};--c:${cor}"><i>${p>=100?"✓":p+"%"}</i></div>`+
-      `<div class="vt"><b>${tit}</b><small>${[cot,extra].filter(Boolean).join(" · ")}</small>${ate?`<small>${ate}</small>`:""}</div></div>`;
+      `<div class="vt"><b>${tit}</b><small>${[cot,extra].filter(Boolean).join(" · ")}</small>${ate?`<small>${ate}</small>`:""}${vgPil(v)}</div></div>`;
   }).join("")+`</div>`;
 }
 function renderLive(){
