@@ -83,7 +83,7 @@ button,input{font:inherit;color:inherit}
 .filtros-mais > summary { font-size: 12px; color: var(--text-secondary); cursor: pointer; margin: 4px 0; }
 .fmais>summary{font-size:12px;color:var(--ac);margin:6px 0}
 </style></head><body>
-<header><div><b>🎾 Tennis Duel</b> <small>v1.13</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
+<header><div><b>🎾 Tennis Duel</b> <small>v1.14</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
 <div class="mt"><button id="m-live" class="on">Ao vivo</button><button id="m-ct">💰 Contas</button></div>
 <div id="app"></div>
 <script>
@@ -434,22 +434,36 @@ function regrasModelos() {
 if (typeof module !== "undefined") module.exports = { regraNova, condNova, regraAtiva, regrasAtivas, regrasAvalia, regrasPassam, viradaSituacao, viradaPerdeSet, regrasModelos };
 
 // UI das regras de filtro (compartilhada: extensão e mobile). est = { regras:[], salvos:[] }.
+const REGRAS_MV = 4;
+function regrasMigrar(est) {
+  if (!est) return false;
+  const antes = JSON.stringify([est.salvos, est.mv]);
+  if (!Array.isArray(est.salvos)) est.salvos = regrasModelos();
+  const acrescentarNovos = () => {
+    const nomes = new Set(est.salvos.map((s) => s && s.nome));
+    regrasModelos().forEach((m) => { if (!nomes.has(m.nome)) est.salvos.push(m); });
+  };
+  if (!(est.mv >= 2)) { acrescentarNovos(); est.mv = 2; }
+  if (est.mv < 3) {
+    // "Valor" sem teto rende pior justamente no extremo (testado em 2025-26): fecha a faixa.
+    est.salvos.forEach((s) => {
+      if (!s || s.nome !== "Valor" || !Array.isArray(s.regras)) return;
+      s.regras.forEach((r) => (r.conds || []).forEach((c) => {
+        if (c && c.t === "valor" && c.max == null) { c.min = 10; c.max = 25; }
+      }));
+    });
+    est.mv = 3;
+  }
+  if (est.mv < 4) { acrescentarNovos(); est.mv = 4; } // "Favorita top pagando bem"
+  return JSON.stringify([est.salvos, est.mv]) !== antes;
+}
+
 function regrasUI(box, est, opt) {
   opt = opt || {};
   let salvando = false;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const clone = (o) => JSON.parse(JSON.stringify(o));
-  if (!Array.isArray(est.salvos)) est.salvos = regrasModelos();
-  if (est.mv < 4) {
-    // acrescenta modelos novos e fecha a faixa do "Valor" (igual à extensão)
-    const nomes = new Set(est.salvos.map((x) => x && x.nome));
-    regrasModelos().forEach((m) => { if (!nomes.has(m.nome)) est.salvos.push(m); });
-    est.salvos.forEach((x) => {
-      if (!x || x.nome !== "Valor" || !Array.isArray(x.regras)) return;
-      x.regras.forEach((r) => (r.conds || []).forEach((c) => { if (c && c.t === "valor" && c.max == null) { c.min = 10; c.max = 25; } }));
-    });
-    est.mv = 4;
-  }
+  regrasMigrar(est);
   if (!Array.isArray(est.regras)) est.regras = [];
   const sel = (p, val, ops) => `<select class="rg-s" data-p="${p}">${ops.map(([v, t]) => `<option value="${v}"${String(val) === v ? " selected" : ""}>${t}</option>`).join("")}</select>`;
   const num = (p, val, ph) => `<input class="rg-n" type="number" step="any" inputmode="decimal" data-p="${p}" value="${val == null ? "" : esc(val)}" placeholder="${ph || ""}">`;
