@@ -51,6 +51,10 @@ button,input{font:inherit;color:inherit}
 .ex th:first-child,.ex td:first-child{text-align:left}.ex td.hl{background:rgba(91,140,255,.15);font-weight:700}.ex td small{display:block;color:var(--mut);font-size:9px}
 .ex .fv{background:var(--bg);border-radius:8px;padding:7px 9px;line-height:1.6}
 .eg{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;padding:4px 0 8px;border-bottom:1px solid var(--bd)}.eg>b{grid-column:1/-1}.eg span{font-size:11px;color:var(--mut)}.eg span b{display:block;font-size:13px;color:var(--tx)}
+.vg{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid var(--bd)}.gc .vg:first-child{border-top:0}
+.don{--p:0;--c:var(--g);width:42px;height:42px;border-radius:50%;flex:none;display:grid;place-items:center;background:conic-gradient(var(--c) calc(var(--p)*1%),var(--bd) 0)}
+.don i{width:32px;height:32px;border-radius:50%;background:var(--card);display:grid;place-items:center;font:700 11px/1 inherit;font-style:normal;color:var(--c)}
+.vt{flex:1;min-width:0;font-size:12.5px}.vt b{display:block}.vt small{color:var(--mut);font-size:11px;display:block;margin-top:1px}
 .stale{margin:0 14px 10px;padding:8px 10px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:12px}
 /* regras de filtro */
 .rg-box{--border:var(--bd);--surface-1:var(--card);--text-secondary:var(--mut)}
@@ -79,7 +83,7 @@ button,input{font:inherit;color:inherit}
 .filtros-mais > summary { font-size: 12px; color: var(--text-secondary); cursor: pointer; margin: 4px 0; }
 .fmais>summary{font-size:12px;color:var(--ac);margin:6px 0}
 </style></head><body>
-<header><div><b>🎾 Tennis Duel</b> <small>v1.11</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
+<header><div><b>🎾 Tennis Duel</b> <small>v1.12</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
 <div class="mt"><button id="m-live" class="on">Ao vivo</button><button id="m-ct">💰 Contas</button></div>
 <div id="app"></div>
 <script>
@@ -650,16 +654,49 @@ function horaFim(ms){if(!ms)return"";const d=new Date(ms),h=d.toLocaleTimeString
 let encPer=ls.get("enc_per")||"ambos";
 function noPer(g){const d0=new Date();d0.setHours(0,0,0,0);const h=d0.getTime()/1000,o=h-86400;
   return (g.ap||[]).some(a=>{const t=a.ts||0;if(!t)return encPer==="ambos";return encPer==="hoje"?t>=h:encPer==="ontem"?(t>=o&&t<h):t>=o})}
+function vgAte(i){
+  if(!i)return "";
+  const dur=(m)=>m>=90?`${Math.floor(m/60)}h${String(Math.round(m%60)).padStart(2,"0")}`:`${Math.round(m)} min`;
+  const m=(i-Date.now())/60000;
+  if(m>0&&m<1)return "jogo começando";
+  if(m<=0){const p=-m;return p<2?"jogo começando":`em jogo há ${dur(p)}`}
+  return `jogo em ${dur(m)}`;
+}
+function vgPct(v){
+  if(v.e==="corresp.")return 100;
+  const a=+v.c||0,f=+v.f||0;
+  if(!(a>0)||!(f>0))return 0;
+  return Math.min(100,Math.max(1,Math.round(100*f/a)));
+}
+function vgHtml(vgs){
+  if(!vgs.length)return `<div class="vazio">Nenhuma ordem vigiada.<br><small>Crie no PC, no botão 👁 do card.</small></div>`;
+  const grupo=(v)=>v.e==="corresp."?2:v.e==="fugiu"?0:1;
+  const nf=(n)=>Number(n||0).toLocaleString("pt-BR",{maximumFractionDigits:1});
+  const fp=(n)=>n==null?"—":(Math.round(n*100)/100).toFixed(2).replace(".",",");
+  const L=[...vgs].sort((a,b)=>grupo(a)-grupo(b)||((a.i||Infinity)-(b.i||Infinity)));
+  return `<div class="gc">`+L.map(v=>{
+    const p=vgPct(v),cor=v.e==="fugiu"?"var(--r)":v.e==="corresp."?"#7c3aed":"var(--g)";
+    const tit=v.e==="corresp."?`✓ ${esc(v.n)} · correspondida`:v.e==="fugiu"?`⚠ ${esc(v.n)} · fugiu · ordem ${fp(v.p)}`:`${esc(v.n)} · na fila · ordem ${fp(v.p)}`;
+    const cot=v.c?(p>0?`${nf(v.f)} de ${nf(v.c)} cotas`:`${nf(v.c)} cotas · nada correspondido`):"";
+    const extra=v.e==="fugiu"?`melhor compra <b>${fp(v.b)}</b>`:v.e==="corresp."?(v.r?esc(v.r):""):(v.b!=null?`melhor compra ${fp(v.b)} ✓`:"");
+    const ate=vgAte(v.i);
+    return `<div class="vg"><div class="don" style="--p:${p};--c:${cor}"><i>${p>=100?"✓":p+"%"}</i></div>`+
+      `<div class="vt"><b>${tit}</b><small>${[cot,extra].filter(Boolean).join(" · ")}</small>${ate?`<small>${ate}</small>`:""}</div></div>`;
+  }).join("")+`</div>`;
+}
 function renderLive(){
   const app=$("#app");
   if(!gistId||!gtoken){app.innerHTML=`<div class="cfg"><b>Ao vivo</b><p>No PC, em ⚙️ → Celular, conecte o token do GitHub e copie o <b>ID do gist</b>. Cole aqui o ID e o mesmo token (só permissão de gist; fica só neste aparelho).</p><input id="gi" placeholder="ID do gist" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(gistId)}"><input id="gt" type="password" placeholder="Token do GitHub" value="${esc(gtoken)}"><button class="p" id="gok">Salvar</button></div>`;
     $("#gok").onclick=()=>{gistId=$("#gi").value.trim().split("/").pop().replace(/[^0-9a-zA-Z]/g,"");gtoken=$("#gt").value.replace(/[^0-9a-zA-Z_]/g,"");ls.set("gist",gistId);ls.set("gtoken",gtoken);lerFeed();render()};return}
   const live=feed?feed.live:[],enc=feed?feed.enc:[];
-  let h=`<div class="seg"><button data-s="vivo" class="${sub==="vivo"?"on":""}">Ao vivo (${live.length})</button><button data-s="enc" class="${sub==="enc"?"on":""}">Encerrados c/ aposta (${enc.length})</button></div>`;
+  const vgs=feed&&Array.isArray(feed.vg)?feed.vg:[];
+  let h=`<div class="seg"><button data-s="vivo" class="${sub==="vivo"?"on":""}">Ao vivo (${live.length})</button><button data-s="enc" class="${sub==="enc"?"on":""}">Encerrados (${enc.length})</button><button data-s="vg" class="${sub==="vg"?"on":""}">👁 Ordens (${vgs.length})</button></div>`;
   if(feed){const idade=Math.round((Date.now()-feed.t)/1000);if(idade>90)h+=`<div class="stale">⚠ PC sem atualizar há ${idade>3600?Math.round(idade/3600)+" h":Math.round(idade/60)+" min"} — dados podem estar velhos.</div>`}
   if(feedErro)h+=`<div class="aviso">Falha ao ler: ${esc(feedErro)}<br><button onclick="abrirCfg()" style="margin-top:6px;border:1px solid var(--bd);background:var(--card);border-radius:8px;padding:6px 12px">⚙️ Reconfigurar</button></div>`;
-  h+=filtrosHtml();
-  if(sub==="vivo"){
+  if(sub!=="vg")h+=filtrosHtml();
+  if(sub==="vg"){
+    h+=vgHtml(vgs);
+  }else if(sub==="vivo"){
     if(!live.length)h+=`<div class="vazio">Nenhum jogo ao vivo entre os seus cards.</div>`;
     const L=live.filter(passa);if(live.length&&!L.length)h+=`<div class="vazio">Nenhum jogo com esses filtros.</div>`;
     if(L.some(g=>g.rt))h+=`<div class="tg"><button id="tga">${L.filter(g=>g.rt).every(g=>abertos.has(g.k))?"Recolher todos":"Expandir todos"}</button></div>`;
@@ -678,7 +715,7 @@ function renderLive(){
   app.innerHTML=h;
   app.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{sub=b.dataset.s;render()});
   const q=(i)=>app.querySelector(i);
-  q("#fh").onclick=()=>{fOpen=!fOpen;render()};
+  const fh=q("#fh");if(fh)fh.onclick=()=>{fOpen=!fOpen;render()};
   app.querySelectorAll("[data-fk]").forEach(b=>b.onclick=()=>{flt[b.dataset.fk]=flt[b.dataset.fk]?0:1;svFlt();render()});
   app.querySelectorAll("[data-fa]").forEach(b=>b.onclick=()=>{const a=flt[b.dataset.fa],v=b.dataset.v,i=a.indexOf(v);i<0?a.push(v):a.splice(i,1);svFlt();render()});
   const rb=q("#rgbox");if(rb)regrasUI(rb,flt.rg,{onChange:()=>{svFlt();render()}});
