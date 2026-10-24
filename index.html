@@ -83,7 +83,7 @@ button,input{font:inherit;color:inherit}
 .filtros-mais > summary { font-size: 12px; color: var(--text-secondary); cursor: pointer; margin: 4px 0; }
 .fmais>summary{font-size:12px;color:var(--ac);margin:6px 0}
 </style></head><body>
-<header><div><b>🎾 Tennis Duel</b> <small>v1.14</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
+<header><div><b>🎾 Tennis Duel</b> <small>v1.15</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
 <div class="mt"><button id="m-live" class="on">Ao vivo</button><button id="m-ct">💰 Contas</button></div>
 <div id="app"></div>
 <script>
@@ -133,7 +133,7 @@ function apostasConstruir(activity, positions, closedCids, agoraSeg) {
   const fechados = new Set(closedCids || []);
   const mapa = new Map();
   const pega = (cid) => {
-    if (!mapa.has(cid)) mapa.set(cid, { cid, stake: 0, shares: 0, ret: 0, ts: null, compras: {}, vendeu: false, title: "", slug: "", eventSlug: "" });
+    if (!mapa.has(cid)) mapa.set(cid, { cid, stake: 0, shares: 0, ret: 0, ts: null, tsFim: null, compras: {}, vendeu: false, title: "", slug: "", eventSlug: "" });
     return mapa.get(cid);
   };
   (activity || []).forEach((a) => {
@@ -156,6 +156,7 @@ function apostasConstruir(activity, positions, closedCids, agoraSeg) {
     } else if ((tipo === "TRADE" && lado === "SELL") || tipo === "REDEEM") {
       b.ret += usd;
       if (tipo === "TRADE") b.vendeu = true;
+      if (ts && (b.tsFim === null || ts > b.tsFim)) b.tsFim = ts; // só existe quando entrou dinheiro
     }
   });
   const posPorCid = new Map();
@@ -214,7 +215,8 @@ function apostasConstruir(activity, positions, closedCids, agoraSeg) {
       retorno: retEfetivo,
       semPosicao,
       resultado, // aberta | ganhou | perdeu | neutra | wo (anulado 50/50)
-      ts: b.ts, // segundos (1ª compra) ou null
+      ts: b.ts,
+      tsFim: b.tsFim, // resgate/venda; null quando perdeu
       tenis: apEhTenis(b.slug, b.eventSlug),
     });
   });
@@ -435,6 +437,11 @@ if (typeof module !== "undefined") module.exports = { regraNova, condNova, regra
 
 // UI das regras de filtro (compartilhada: extensão e mobile). est = { regras:[], salvos:[] }.
 const REGRAS_MV = 4;
+// "01:14" se foi hoje, "25/10 01:14" em outro dia (o resgate pode cair depois)
+function dh(ms){const d=new Date(ms);const t=d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+  if(d.toDateString()===new Date().toDateString())return t;
+  const p=(n)=>String(n).padStart(2,"0");return p(d.getDate())+"/"+p(d.getMonth()+1)+" "+t;}
+
 function regrasMigrar(est) {
   if (!est) return false;
   const antes = JSON.stringify([est.salvos, est.mv]);
@@ -667,7 +674,7 @@ function duracao(ms){if(!(ms>60000))return"";const m=Math.round(ms/60000);return
 function exEncHtml(g){
   const hh=(ts)=>new Date(ts).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
   const bets=(g.ap||[]).map(a=>{const nome=a.l==="A"?g.a:a.l==="B"?g.b:a.o;const pr=a.c>0?a.s/a.c:null;
-    return `<div class="eg"><b>${esc(nc(nome))}</b><span>Apostado<b>${money(a.s)}</b></span><span>Recebeu<b>${money(a.r||0)}</b></span><span>Lucro<b class="${cls(a.p)}">${din(a.p,1)} (${a.pc>=0?"+":"−"}${Math.abs(a.pc).toFixed(0)}%)</b></span><span>Preço → odd<b>${pr?pr.toFixed(2).replace(".",",")+" → "+(1/pr).toFixed(2).replace(".",","):"—"}</b></span><span>Cotas<b>${Number(a.c).toLocaleString("pt-BR",{maximumFractionDigits:2})}</b></span><span>Aposta às<b>${a.ts?hh(a.ts*1000):"—"}</b></span></div>`}).join("");
+    return `<div class="eg"><b>${esc(nc(nome))}</b><span>Apostado<b>${money(a.s)}</b></span><span>Recebeu<b>${money(a.r||0)}</b></span><span>Lucro<b class="${cls(a.p)}">${din(a.p,1)} (${a.pc>=0?"+":"−"}${Math.abs(a.pc).toFixed(0)}%)</b></span><span>Preço → odd<b>${pr?pr.toFixed(2).replace(".",",")+" → "+(1/pr).toFixed(2).replace(".",","):"—"}</b></span><span>Cotas<b>${Number(a.c).toLocaleString("pt-BR",{maximumFractionDigits:2})}</b></span><span>Aposta às<b>${a.ts?hh(a.ts*1000):"—"}</b></span>${a.tf?`<span>Resgatado<b>${dh(a.tf*1000)}</b></span>`:""}</div>`}).join("");
   const dur=g.t0&&g.fim?duracao(g.fim-g.t0):"";
   const jogo=`<div class="eg"><b>Jogo</b>${g.fim?`<span>Terminou<b>${horaFim(g.fim)}</b></span>`:""}<span>Sets<b>${g.sets.map(s=>s[0]+"-"+s[1]).join(" ")}</b></span>${dur?`<span>Acompanhado ao vivo<b>${dur}</b></span>`:""}${g.od0?`<span>Odd pré-jogo<b>${Number(g.od0[0]).toFixed(2)} × ${Number(g.od0[1]).toFixed(2)}</b></span>`:""}</div>`;
   return `<div class="ex">${bets}${jogo}</div>`+retHtml(g)}
