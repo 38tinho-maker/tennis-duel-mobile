@@ -89,7 +89,7 @@ button,input{font:inherit;color:inherit}
 .vgp .vgb{color:#4ade80}.vgp .vgc{color:#f87171}
 .vgp .vgi{background:#3a2f16;border-color:#5c4a1f;color:#fbbf24}
 </style></head><body>
-<header><div><b>🎾 Tennis Duel</b> <small>v1.16</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
+<header><div><b>🎾 Tennis Duel</b> <small>v1.17</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
 <div class="mt"><button id="m-live" class="on">Ao vivo</button><button id="m-ct">💰 Contas</button></div>
 <div id="app"></div>
 <script>
@@ -134,60 +134,95 @@ function apNum(x) {
 }
 
 // Uma "aposta" = um mercado (conditionId) em que você comprou.
+// Data do JOGO (do slug do mercado), não a da aposta — a contabilidade por
+// dia usa ela. Estava só na extensão desde a v13.71.
+function apDataJogo(bet) {
+  const m = /(20\d\d)-(\d{2})-(\d{2})(?:\D|$)/.exec(String((bet && bet.slug) || ""));
+  if (m) {
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0); // meio-dia local: imune a fuso
+    if (!isNaN(d.getTime())) return Math.floor(d.getTime() / 1000);
+  }
+  return (bet && bet.ts) || null;
+}
+
 function apostasConstruir(activity, positions, closedCids, agoraSeg) {
   const agora = agoraSeg || Date.now() / 1000;
   const fechados = new Set(closedCids || []);
+  // Uma aposta é (mercado + JOGADOR), não só o mercado. Na Polymarket os dois
+  // jogadores de uma partida dividem o mesmo conditionId: agrupando só por ele,
+  // quem tem posição nos dois lados via o valor de um somado ao custo do outro
+  // (foi o que deu "+3593%" num bilhete de 2,6 cotas).
   const mapa = new Map();
-  const pega = (cid) => {
-    if (!mapa.has(cid)) mapa.set(cid, { cid, stake: 0, shares: 0, ret: 0, ts: null, tsFim: null, compras: {}, vendeu: false, title: "", slug: "", eventSlug: "" });
-    return mapa.get(cid);
+  const chave = (cid, out) => `${cid}|${String(out || "")}`;
+  const pega = (cid, out) => {
+    const k = chave(cid, out);
+    if (!mapa.has(k)) mapa.set(k, { cid, out: String(out || ""), stake: 0, shares: 0, ret: 0, ts: null, tsFim: null, compras: {}, vendeu: false, title: "", slug: "", eventSlug: "" });
+    return mapa.get(k);
   };
+  // REDEEM às vezes vem sem o lado; fica reservado e é distribuído no fim.
+  const resgateSemLado = new Map();
   (activity || []).forEach((a) => {
     const cid = a.cid || a.conditionId;
     if (!cid) return;
     const tipo = String(a.t || a.type || "").toUpperCase();
-    const lado = String(a.side || "").toUpperCase();
+    const side = String(a.side || "").toUpperCase();
     const usd = apNum(a.usd !== undefined ? a.usd : a.usdcSize) || apNum(a.size) * apNum(a.price);
     const ts = apNum(a.ts !== undefined ? a.ts : a.timestamp);
-    const b = pega(cid);
+    const lado = a.out || a.outcome || "";
+    if (tipo === "REDEEM" && !lado) {
+      resgateSemLado.set(cid, (resgateSemLado.get(cid) || 0) + usd);
+      return;
+    }
+    const b = pega(cid, lado);
     if (!b.title) b.title = a.title || "";
     if (!b.slug) b.slug = a.slug || "";
     if (!b.eventSlug) b.eventSlug = a.eventSlug || a.es || "";
-    if (tipo === "TRADE" && lado === "BUY") {
+    if (tipo === "TRADE" && side === "BUY") {
       b.stake += usd;
       b.shares += apNum(a.size);
       if (ts && (b.ts === null || ts < b.ts)) b.ts = ts;
-      const o = a.out || a.outcome || "";
-      b.compras[o] = (b.compras[o] || 0) + usd;
-    } else if ((tipo === "TRADE" && lado === "SELL") || tipo === "REDEEM") {
+      b.compras[lado] = (b.compras[lado] || 0) + usd;
+    } else if ((tipo === "TRADE" && side === "SELL") || tipo === "REDEEM") {
       b.ret += usd;
       if (tipo === "TRADE") b.vendeu = true;
-      if (ts && (b.tsFim === null || ts > b.tsFim)) b.tsFim = ts; // só existe quando entrou dinheiro
+      // horário do resgate/venda: serve pra casar com o extrato da carteira.
+      // Só existe quando entra dinheiro — aposta perdida não gera evento nenhum,
+      // por isso ele NUNCA entra na contabilidade por dia (essa usa tsJogo).
+      if (ts && (b.tsFim === null || ts > b.tsFim)) b.tsFim = ts;
     }
   });
-  const posPorCid = new Map();
+  // posições também por mercado + jogador
+  const posPorChave = new Map();
   (positions || []).forEach((p) => {
     const cid = p.conditionId;
     if (!cid) return;
-    if (!posPorCid.has(cid)) posPorCid.set(cid, []);
-    posPorCid.get(cid).push(p);
+    const k = chave(cid, p.outcome);
+    if (!posPorChave.has(k)) posPorChave.set(k, []);
+    posPorChave.get(k).push(p);
   });
-  posPorCid.forEach((lista, cid) => {
-    const b = pega(cid);
-    if (!b.title) b.title = lista[0].title || "";
-    if (!b.slug) b.slug = lista[0].slug || "";
-    if (!b.eventSlug) b.eventSlug = lista[0].eventSlug || "";
+  posPorChave.forEach((lista, k) => {
+    const p0 = lista[0];
+    const b = pega(p0.conditionId, p0.outcome);
+    if (!b.title) b.title = p0.title || "";
+    if (!b.slug) b.slug = p0.slug || "";
+    if (!b.eventSlug) b.eventSlug = p0.eventSlug || "";
     if (b.stake === 0) {
       // sem histórico: usa o que a posição informa
       b.stake = lista.reduce((s, p) => s + apNum(p.initialValue), 0);
       b.shares = lista.reduce((s, p) => s + apNum(p.totalBought || p.size), 0);
-      lista.forEach((p) => (b.compras[p.outcome || ""] = (b.compras[p.outcome || ""] || 0) + apNum(p.initialValue)));
+      b.compras[b.out] = (b.compras[b.out] || 0) + b.stake;
     }
+  });
+  // resgate sem lado: vai pro lado que tinha mais cotas naquele mercado
+  resgateSemLado.forEach((usd, cid) => {
+    let alvo = null;
+    mapa.forEach((b) => { if (b.cid === cid && (!alvo || b.shares > alvo.shares)) alvo = b; });
+    if (alvo) alvo.ret += usd;
   });
   const bets = [];
   mapa.forEach((b) => {
     if (b.stake <= 0) return;
-    const lista = (posPorCid.get(b.cid) || []).filter((p) => apNum(p.size) > 0.01);
+    const lista = (posPorChave.get(chave(b.cid, b.out)) || []).filter((p) => apNum(p.size) > 0.01);
     const valorAtual = lista.reduce((s, p) => s + apNum(p.currentValue), 0);
     // Só vira "encerrada" com prova: posição resolvida, já vendida/resgatada, ou listada nas encerradas.
     // Posição que simplesmente não apareceu NÃO é perda: fica "aberta" sem valor conhecido.
@@ -206,7 +241,7 @@ function apostasConstruir(activity, positions, closedCids, agoraSeg) {
     if (status === "encerrada") resultado = pnl > 0.005 ? "ganhou" : pnl < -0.005 ? "perdeu" : "neutra";
     // WO / anulado: mercado devolvido 50/50 (≈ $0,50 por cota) sem nenhuma venda sua
     if (status === "encerrada" && !b.vendeu && b.shares > 0 && retEfetivo / b.shares >= 0.45 && retEfetivo / b.shares <= 0.55) resultado = "wo";
-    const outcome = Object.keys(b.compras).sort((x, y) => b.compras[y] - b.compras[x])[0] || (lista[0] && lista[0].outcome) || "";
+    const outcome = b.out || Object.keys(b.compras).sort((x, y) => b.compras[y] - b.compras[x])[0] || (lista[0] && lista[0].outcome) || "";
     const avg = b.shares > 0 ? b.stake / b.shares : 0;
     bets.push({
       cid: b.cid,
@@ -221,12 +256,14 @@ function apostasConstruir(activity, positions, closedCids, agoraSeg) {
       retorno: retEfetivo,
       semPosicao,
       resultado, // aberta | ganhou | perdeu | neutra | wo (anulado 50/50)
-      ts: b.ts,
-      tsFim: b.tsFim, // resgate/venda; null quando perdeu
+      ts: b.ts, // segundos (1ª compra) ou null
+      tsFim: b.tsFim, // segundos do resgate/venda; null quando perdeu (não há evento)
+      tsJogo: null, // preenchido abaixo: data da partida (slug), usada na contabilidade
       tenis: apEhTenis(b.slug, b.eventSlug),
     });
   });
-  bets.sort((x, y) => (x.ts || 0) - (y.ts || 0));
+  bets.forEach((b) => (b.tsJogo = apDataJogo(b)));
+  bets.sort((x, y) => (x.tsJogo || x.ts || 0) - (y.tsJogo || y.ts || 0));
   return bets;
 }
 
@@ -291,7 +328,10 @@ function apostasPeriodo(bets, tipo, ref, soTenis) {
     ini = new Date(ref.getFullYear(), ref.getMonth(), 1);
     fim = new Date(ref.getFullYear(), ref.getMonth() + 1, 1);
   }
-  const lista = (bets || []).filter((b) => b.ts && (!soTenis || b.tenis) && b.ts * 1000 >= ini.getTime() && b.ts * 1000 < fim.getTime());
+  const lista = (bets || []).filter((b) => {
+    const t = apDataJogo(b); // data do JOGO, igual à extensão (v13.71)
+    return t && (!soTenis || b.tenis) && t * 1000 >= ini.getTime() && t * 1000 < fim.getTime();
+  });
   return { ini, fim, bets: lista, totais: apTotais(lista) };
 }
 
@@ -638,7 +678,7 @@ function renderContas(){
       const hr=new Date(b.ts*1000).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
       return `<div class="item"><div class="l1"><span>${esc(b.title)}</span></div>${apBloco(bX(b))}<div class="l2">${pill} · ${hr}</div></div>`}).join("");
   }else{
-    const g=new Map();per.bets.forEach(b=>{const k=apChaveDia(new Date(b.ts*1000));if(!g.has(k))g.set(k,[]);g.get(k).push(b)});
+    const g=new Map();per.bets.forEach(b=>{const k=apChaveDia(new Date((b.tsJogo||b.ts)*1000));if(!g.has(k))g.set(k,[]);g.get(k).push(b)});
     const n=Math.round((per.fim-per.ini)/864e5),dias=[];
     for(let i=0;i<n;i++){const d=new Date(per.ini.getFullYear(),per.ini.getMonth(),per.ini.getDate()+i),l=g.get(apChaveDia(d))||[];dias.push({d,l:l.reduce((s,b)=>s+b.pnl,0),n:l.length})}
     const mx=Math.max(1,...dias.map(x=>Math.abs(x.l)));
