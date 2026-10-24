@@ -83,7 +83,7 @@ button,input{font:inherit;color:inherit}
 .filtros-mais > summary { font-size: 12px; color: var(--text-secondary); cursor: pointer; margin: 4px 0; }
 .fmais>summary{font-size:12px;color:var(--ac);margin:6px 0}
 </style></head><body>
-<header><div><b>🎾 Tennis Duel</b> <small>v1.12</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
+<header><div><b>🎾 Tennis Duel</b> <small>v1.13</small><br><small id="st">—</small></div><button id="gear" style="border:0;background:none;font-size:20px">⚙️</button></header>
 <div class="mt"><button id="m-live" class="on">Ao vivo</button><button id="m-ct">💰 Contas</button></div>
 <div id="app"></div>
 <script>
@@ -425,7 +425,9 @@ function regrasModelos() {
   return [
     { nome: "Zebra com %", regras: [{ on: true, alerta: false, conds: [{ t: "pct", per: "s", op: "acima", v1: 50, v2: null }, { t: "rel", per: "s", rel: "vence", vant: null }, { t: "odd", op: "acima", v1: 3, v2: null }] }] },
     { nome: "Líder pagando bem", regras: [{ on: true, alerta: false, conds: [{ t: "rel", per: "e", rel: "vence", vant: null }, { t: "odd", op: "acima", v1: 1.8, v2: null }] }] },
-    { nome: "Valor", regras: [{ on: true, alerta: false, conds: [{ t: "valor", base: "min", min: 8 }] }] },
+    { nome: "Valor", regras: [{ on: true, alerta: false, conds: [{ t: "valor", base: "min", min: 10, max: 25 }] }] },
+    { nome: "Favorita top pagando bem", regras: [{ on: true, alerta: false, conds: [{ t: "pct", per: "s", op: "acima", v1: 75, v2: null }, { t: "odd", op: "entre", v1: 1.4, v2: 2 }] }] },
+    { nome: "Faixa de odd", regras: [{ on: true, alerta: false, conds: [{ t: "odd", op: "entre", v1: 2, v2: 2.5 }] }] },
     { nome: "Virada", regras: [{ on: true, alerta: true, conds: [{ t: "odd", op: "acima", v1: 2, v2: null }, { t: "sit", sit: "p2" }] }] },
   ];
 }
@@ -438,6 +440,16 @@ function regrasUI(box, est, opt) {
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const clone = (o) => JSON.parse(JSON.stringify(o));
   if (!Array.isArray(est.salvos)) est.salvos = regrasModelos();
+  if (est.mv < 4) {
+    // acrescenta modelos novos e fecha a faixa do "Valor" (igual à extensão)
+    const nomes = new Set(est.salvos.map((x) => x && x.nome));
+    regrasModelos().forEach((m) => { if (!nomes.has(m.nome)) est.salvos.push(m); });
+    est.salvos.forEach((x) => {
+      if (!x || x.nome !== "Valor" || !Array.isArray(x.regras)) return;
+      x.regras.forEach((r) => (r.conds || []).forEach((c) => { if (c && c.t === "valor" && c.max == null) { c.min = 10; c.max = 25; } }));
+    });
+    est.mv = 4;
+  }
   if (!Array.isArray(est.regras)) est.regras = [];
   const sel = (p, val, ops) => `<select class="rg-s" data-p="${p}">${ops.map(([v, t]) => `<option value="${v}"${String(val) === v ? " selected" : ""}>${t}</option>`).join("")}</select>`;
   const num = (p, val, ph) => `<input class="rg-n" type="number" step="any" inputmode="decimal" data-p="${p}" value="${val == null ? "" : esc(val)}" placeholder="${ph || ""}">`;
